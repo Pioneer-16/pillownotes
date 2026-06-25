@@ -1,0 +1,14 @@
+{
+  "name": "zhenshuge",
+  "version": "1.0.0",
+  "description": "枕书阁 - 读书笔记管理 Web 应用",
+  "main": "app/web/server.js",
+  "scripts": {
+    "start": "node app/web/server.js"
+  },
+  "keywords": ["notes", "reading", "book"],
+  "license": "MIT",
+  "dependencies": {
+    "dotenv": "^16.4.7"
+  }
+}

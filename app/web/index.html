@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>枕书阁</title>
+  <link rel="stylesheet" href="style.css?v=19">
+
+</head>
+<body>
+  <div class="app noise-bg">
+    <!-- 顶栏 -->
+    <header class="topbar">
+      <h1 class="app-title">枕 书 阁</h1>
+      <div class="search-bar" id="search-bar">
+        <svg class="search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="text" class="search-input" id="search-input" placeholder="搜索笔记…" autocomplete="off">
+        <button class="search-clear" id="search-clear" style="display:none" title="清除">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <div class="topbar-actions">
+        <button class="topbar-btn" id="btn-auth" title="解锁编辑">
+          <svg class="icon-locked" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+          <svg class="icon-unlocked" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 019.9-1"/></svg>
+        </button>
+        <button class="topbar-btn" id="btn-toggle-theme" title="切换主题">
+          <svg class="icon-sun" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+          <svg class="icon-moon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>
+        </button>
+        <button class="topbar-btn" id="btn-export" title="导出数据">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        </button>
+        <button class="topbar-btn" id="btn-import" title="导入数据">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        </button>
+        <input type="file" id="import-file" accept=".json" style="display:none">
+        <button class="topbar-btn" id="btn-settings" title="设置">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+        </button>
+      </div>
+    </header>
+
+    <main class="main-layout">
+      <!-- 左侧：笔记内容区 -->
+      <section class="content-area" id="content-area">
+        <div class="content-placeholder animate-float" id="placeholder">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" opacity="0.4"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>
+          <p>从右侧选择一个笔记本</p>
+        </div>
+
+        <!-- 笔记列表 -->
+        <div class="notes-view" id="notes-view" style="display:none">
+          <div class="notes-header">
+            <h2 class="file-title" id="file-title"></h2>
+            <button class="btn-add" id="btn-add-note" title="新增笔记">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              <span>新增</span>
+            </button>
+          </div>
+          <div class="notes-list" id="notes-list"></div>
+        </div>
+      </section>
+
+      <!-- 右侧：笔记本导航 -->
+      <aside class="sidebar">
+        <div class="sidebar-header">
+          <h2 class="sidebar-title">笔记本</h2>
+          <button class="icon-btn" id="btn-new-file" title="新建笔记本">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          </button>
+        </div>
+        <ul class="file-list" id="file-list"></ul>
+      </aside>
+    </main>
+  </div>
+
+  <!-- 确认弹窗 -->
+  <div class="modal-overlay" id="modal-overlay" style="display:none">
+    <div class="modal animate-scale-in">
+      <p class="modal-text" id="modal-text"></p>
+      <div class="modal-actions">
+        <button class="modal-btn modal-btn-cancel" id="modal-cancel">取消</button>
+        <button class="modal-btn modal-btn-confirm" id="modal-confirm">确认</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 密码输入弹窗 -->
+  <div class="modal-overlay" id="auth-overlay" style="display:none">
+    <div class="modal animate-scale-in">
+      <p class="modal-text">输入访问密码解锁编辑</p>
+      <input type="password" class="auth-input" id="auth-input" placeholder="密码" autocomplete="off">
+      <p class="auth-error" id="auth-error" style="display:none">密码错误</p>
+      <div class="modal-actions">
+        <button class="modal-btn modal-btn-cancel" id="auth-cancel">取消</button>
+        <button class="modal-btn modal-btn-confirm" id="auth-confirm">解锁</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 设置弹窗 -->
+  <div class="modal-overlay" id="settings-overlay" style="display:none">
+    <div class="settings-modal animate-scale-in">
+      <div class="settings-header">
+        <h3 class="settings-title">设置</h3>
+        <button class="modal-close" id="settings-close" title="关闭">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <div class="settings-split">
+        <!-- 左侧：模板 -->
+        <div class="settings-left">
+          <div class="settings-panel-header">
+            <span class="settings-panel-title">卡片模板</span>
+            <button class="btn-add-sm" id="btn-new-template" title="新建模板">+ 新建</button>
+          </div>
+          <div class="template-list" id="template-list"></div>
+          <div class="template-detail" id="template-detail">
+            <div class="template-name-row">
+              <label class="edit-label">模板名称</label>
+              <input type="text" class="edit-field" id="template-name-input" placeholder="模板名称">
+            </div>
+            <div class="settings-panel-header">
+              <span class="edit-label">字段列表</span>
+              <span class="drop-hint">← 从右侧拖入组件</span>
+            </div>
+            <div class="template-field-list" id="template-field-list"></div>
+            <div class="template-preview-section">
+              <span class="edit-label">预览</span>
+              <div class="template-preview" id="template-preview"></div>
+              <div class="template-preview-subtitle">编辑表单</div>
+              <div class="template-preview template-preview-edit" id="template-preview-edit"></div>
+            </div>
+            <div class="template-bottom">
+              <div class="template-notebook-row">
+                <span class="settings-notebook-label" id="settings-notebook-label">未选择笔记本</span>
+                <div class="dropdown-wrap" id="template-dropdown-wrap">
+                  <input type="text" class="edit-field" id="template-dropdown-input" placeholder="选择模板" readonly autocomplete="off">
+                  <button type="button" class="dropdown-toggle" id="template-dropdown-toggle"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg></button>
+                  <div class="dropdown-menu" id="template-dropdown-menu"></div>
+                </div>
+              </div>
+              <div class="template-actions">
+                <button class="btn-sm btn-sm-cancel" id="btn-delete-template">删除模板</button>
+                <button class="btn-sm btn-sm-save" id="btn-save-template"><span>保存模板</span></button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <!-- 右侧：组件库 -->
+        <div class="settings-right" id="component-panel"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js?v=13"></script>
+</body>
+</html>

@@ -1,0 +1,54 @@
+{
+  "books": ["示例书籍"],
+  "dynasties": ["现代"],
+  "lastBook": "示例书籍",
+  "lastDynasty": "现代",
+  "notebooks": ["读书笔记"],
+  "fieldComponents": [
+    {
+      "id": "content",
+      "type": "textarea",
+      "label": "正文",
+      "placeholder": "笔记正文…",
+      "config": { "hasTable": true }
+    },
+    {
+      "id": "book",
+      "type": "dropdown",
+      "label": "书名",
+      "placeholder": "书名",
+      "config": { "display": "bookname" }
+    },
+    {
+      "id": "page",
+      "type": "number",
+      "label": "页码",
+      "placeholder": "页码",
+      "config": { "format": "P000" }
+    },
+    {
+      "id": "dynasty",
+      "type": "dropdown",
+      "label": "朝代 / 时间",
+      "placeholder": "朝代",
+      "config": {}
+    },
+    {
+      "id": "quote",
+      "type": "textarea",
+      "label": "引用",
+      "placeholder": "引用原文…",
+      "config": { "hasTable": true, "display": "quote" }
+    }
+  ],
+  "cardTemplates": [
+    {
+      "id": "default",
+      "name": "默认笔记",
+      "fieldIds": ["content", "book", "page", "dynasty", "quote"]
+    }
+  ],
+  "notebookTemplates": {
+    "读书笔记": "default"
+  }
+}
