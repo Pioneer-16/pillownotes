@@ -562,7 +562,7 @@ function editNote(index) {
     const cols = Math.min(pendingInline.length, 5);
     fieldsHtml += `<div class="edit-row edit-row-${cols}">`;
     for (const { id, comp } of pendingInline) {
-      const isSmall = comp.type === 'number' || comp.type === 'date';
+      const isSmall = comp.type === 'number' || comp.type === 'date' || comp.type === 'rating';
       const colClass = isSmall ? 'edit-col edit-col-sm' : 'edit-col';
       const val = note[id] !== undefined ? note[id] : '';
 
@@ -1563,7 +1563,7 @@ function renderTemplatePreview(template) {
     const cols = Math.min(pendingInline.length, 5);
     editHtml += `<div class="edit-row edit-row-${cols}">`;
     for (const { id, comp } of pendingInline) {
-      const isSmall = comp.type === 'number' || comp.type === 'date';
+      const isSmall = comp.type === 'number' || comp.type === 'date' || comp.type === 'rating';
       const colClass = isSmall ? 'edit-col edit-col-sm' : 'edit-col';
       const val = sampleNote[id] || '';
       if (comp.type === 'dropdown') {
