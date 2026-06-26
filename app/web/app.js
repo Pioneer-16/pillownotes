@@ -1536,7 +1536,19 @@ async function deleteNotebook(name) {
 // ===== 导入导出 =====
 async function exportData() {
   const allNotes = await storage.getAllNotes();
-  const json = JSON.stringify(allNotes, null, 2);
+  const globalsData = await storage.getGlobals();
+  const exportObj = {
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    globals: {
+      notebooks: globalsData.notebooks || [],
+      fieldComponents: globalsData.fieldComponents || [],
+      cardTemplates: globalsData.cardTemplates || [],
+      notebookTemplates: globalsData.notebookTemplates || {}
+    },
+    notes: allNotes
+  };
+  const json = JSON.stringify(exportObj, null, 2);
   const blob = new Blob([json], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -1552,7 +1564,13 @@ async function importData(file) {
     try {
       const data = JSON.parse(e.target.result);
       let importedNotes = [];
-      if (Array.isArray(data)) {
+      let importedGlobals = null;
+
+      // 新格式：包含 globals 和 notes
+      if (data.version && data.notes) {
+        importedNotes = data.notes;
+        importedGlobals = data.globals;
+      } else if (Array.isArray(data)) {
         importedNotes = data;
       } else if (data.notebooks) {
         for (const [name, notes] of Object.entries(data.notebooks)) {
@@ -1575,11 +1593,31 @@ async function importData(file) {
           }
         }
       }
+
+      // 清理笔记数据
+      importedNotes = importedNotes.filter(n => n && n.id);
+      importedNotes.forEach(n => {
+        if (n.notebooks) {
+          n.notebooks = n.notebooks.filter(nb => nb != null && nb !== '');
+        }
+        if (!n.notebooks || n.notebooks.length === 0) {
+          n.notebooks = ['未分类'];
+        }
+      });
+
       const allNotes = await storage.getAllNotes();
       allNotes.push(...importedNotes);
       await storage.saveAllNotes(allNotes);
 
       // 更新全局笔记本列表
+      if (importedGlobals && importedGlobals.notebooks) {
+        for (const nb of importedGlobals.notebooks) {
+          if (!globals.notebooks) globals.notebooks = [];
+          if (!globals.notebooks.includes(nb)) {
+            globals.notebooks.push(nb);
+          }
+        }
+      }
       for (const note of importedNotes) {
         if (note.notebooks) {
           for (const nb of note.notebooks) {
