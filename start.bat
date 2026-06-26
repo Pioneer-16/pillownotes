@@ -12,6 +12,7 @@ if not exist node_modules (
 )
 cd /d "%~dp0app\web"
 echo 正在启动枕书阁...
+start /b node server.js
+timeout /t 2 /nobreak >nul
 start http://localhost:3000
-node server.js
 pause
