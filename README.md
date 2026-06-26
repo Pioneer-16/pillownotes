@@ -1,92 +1,83 @@
-# 枕书阁
+# 枕书阁 · PillowNotes
 
-读书笔记管理 Web 应用，用于记录和管理中国古代文化相关的读书笔记。
+一个轻量的本地读书笔记管理工具，支持自定义模板、多笔记本分类、卡片式展示。
 
-## 功能特性
+## ✨ 特性
 
-- 笔记管理：创建、编辑、删除笔记
-- 笔记本分类：按笔记本组织笔记
-- 搜索功能：快速查找笔记内容
-- 图片上传：支持粘贴上传图片
-- 暗色/亮色主题切换
-- 自定义卡片模板
-- 导入/导出功能
+- 📝 自定义卡片模板 — 自由组合字段，适配不同笔记场景
+- 📚 多笔记本管理 — 按主题分类，独立模板
+- 🎨 卡片式展示 — 书名、朝代、页码一目了然
+- 🔍 全文搜索 — 快速定位笔记内容
+- 📋 筛选功能 — 按字段精确过滤
+- 🖼️ 图片粘贴 — 直接粘贴图片到笔记
+- 📥 导入导出 — JSON 格式备份恢复
+- 🔒 纯本地部署 — 数据在自己电脑上，无需注册
 
-## 技术栈
+## 📦 内置模板
 
-- **后端**：Node.js（原生 http 模块）
-- **前端**：原生 JavaScript + HTML + CSS
-- **数据存储**：JSON 文件
+| 模板 | 适用场景 |
+|------|----------|
+| 古籍笔记 | 古文阅读、文献摘录 |
+| 诗词赏析 | 诗词鉴赏、文学分析 |
+| 学习笔记 | 课堂笔记、知识点整理 |
+| 技术文档 | 技术学习、代码记录 |
+| 漫画绘本 | 阅读记录、画风评价 |
+| 哲学摘录 | 经典原文、个人感悟 |
+| 书法碑帖 | 碑帖临摹、书法家评析 |
 
-## 快速开始
-
-### 1. 克隆仓库
-
-```bash
-git clone https://github.com/your-username/zhenshuge.git
-cd zhenshuge
-```
-
-### 2. 安装依赖
+## 🚀 快速开始
 
 ```bash
+# 克隆项目
+git clone https://github.com/你的用户名/pillownotes.git
+cd pillownotes
+
+# 安装依赖
 npm install
-```
 
-### 3. 配置环境变量
-
-```bash
-cp .env.example .env
-```
-
-编辑 `.env` 文件，设置访问密码：
-
-```
-AUTH_PASSWORD=your_password_here
-PORT=3000
-```
-
-### 4. 启动服务
-
-```bash
+# 启动服务
 npm start
 ```
 
-### 5. 打开浏览器
+然后打开浏览器访问 http://localhost:3000
 
-访问 http://localhost:3000
+或者直接双击 `start.bat`（Windows）。
 
-## 项目结构
+## ⚙️ 配置
 
-```
-books/
-├── app/                    # 应用程序
-│   ├── web/
-│   │   ├── server.js       # Node.js 后端
-│   │   ├── app.js          # 前端逻辑
-│   │   ├── index.html      # 主页面
-│   │   ├── style.css       # 样式
-│   │   └── start.bat       # Windows 启动脚本
-│   └── docs/               # 文档
-├── data/                   # 数据目录（运行时自动创建）
-│   └── sample/             # 示例数据
-├── .env.example            # 环境变量示例
-├── .gitignore
-├── package.json
-└── README.md
+复制 `.env.example` 为 `.env`，可自定义端口和访问密码：
+
+```env
+PORT=3000
+AUTH_PASSWORD=your_password
 ```
 
-## 环境变量
+## 🗂️ 项目结构
 
-| 变量 | 说明 | 默认值 |
-|------|------|--------|
-| `AUTH_PASSWORD` | 访问密码（必填） | - |
-| `PORT` | 服务端口 | 3000 |
+```
+├── app/web/          # 前端 + 服务端
+│   ├── index.html    # 页面结构
+│   ├── app.js        # 前端逻辑
+│   ├── style.css     # 样式
+│   └── server.js     # Node.js 服务端
+├── data/             # 数据目录（自动创建）
+│   ├── _globals.json # 全局配置
+│   ├── notes.json    # 笔记数据
+│   └── images/       # 图片存储
+└── data/sample/      # 样例数据
+```
 
-## Windows 用户
+## 🛠️ 技术栈
 
-可以直接双击 `app/web/start.bat` 启动服务（需先配置 `.env` 文件）。
+- 前端：原生 HTML/CSS/JS，无框架依赖
+- 后端：Node.js + 原生 HTTP
+- 存储：本地 JSON 文件
+- 依赖：仅 `dotenv`
 
-## License
+## 📄 许可证
 
-MIT
+[MIT License](LICENSE)
+
+## 💬 反馈
+
+如果觉得有用，欢迎 star ⭐ 或赞助支持！
