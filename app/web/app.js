@@ -859,13 +859,13 @@ function editNote(index) {
         fieldsHtml += `
           <div class="edit-col">
             <label class="edit-label">${escapeHtml(comp.label)}</label>
-            ${hasTable ? `<div class="edit-toolbar">
-              <button type="button" class="edit-tool-btn" data-action="insert-table" data-target="${fieldId}" data-index="${index}" title="插入表格">
+            ${hasTable || isCode ? `<div class="edit-toolbar">
+              ${hasTable ? `<button type="button" class="edit-tool-btn" data-action="insert-table" data-target="${fieldId}" data-index="${index}" title="插入表格">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/></svg>
-              </button>
-              <button type="button" class="edit-tool-btn" data-action="insert-code" data-target="${fieldId}" data-index="${index}" title="插入代码块">
+              </button>` : ''}
+              ${isCode ? `<button type="button" class="edit-tool-btn" data-action="insert-code" data-target="${fieldId}" data-index="${index}" title="插入代码块">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
-              </button>
+              </button>` : ''}
             </div>` : ''}
             <textarea class="edit-field ${cssClass}" data-field-id="${fieldId}" placeholder="${escapeHtml(comp.placeholder || '')}" rows="${rows}">${escapeHtml(note[fieldId] || '')}</textarea>
           </div>`;
@@ -2038,10 +2038,14 @@ function renderTemplatePreview(template) {
       flushInline();
       if (comp.type === 'textarea') {
         const hasTable = comp.config?.hasTable;
+        const isCode = comp.config?.display === 'code';
         editHtml += `<div class="edit-col">
           <label class="edit-label">${escapeHtml(comp.label)}</label>
-          ${hasTable ? '<div class="edit-toolbar"><button type="button" class="edit-tool-btn" disabled title="插入表格"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/></svg></button></div>' : ''}
-          <textarea class="edit-field" placeholder="${escapeHtml(comp.placeholder || '')}" rows="${comp.config?.display === 'quote' ? '2' : '3'}" disabled>${escapeHtml(sampleNote[fieldId] || '')}</textarea>
+          ${hasTable || isCode ? `<div class="edit-toolbar">
+            ${hasTable ? '<button type="button" class="edit-tool-btn" disabled title="插入表格"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/></svg></button>' : ''}
+            ${isCode ? '<button type="button" class="edit-tool-btn" disabled title="插入代码块"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg></button>' : ''}
+          </div>` : ''}
+          <textarea class="edit-field" placeholder="${escapeHtml(comp.placeholder || '')}" rows="${comp.config?.display === 'quote' ? '2' : (isCode ? '4' : '3')}" disabled>${escapeHtml(sampleNote[fieldId] || '')}</textarea>
         </div>`;
       } else {
         const val = sampleNote[fieldId] || '';
