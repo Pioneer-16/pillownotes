@@ -422,7 +422,15 @@ function renderCardFields(note, template, isSearch, q) {
 
     if (comp.type === 'textarea') {
       const isQuote = comp.config?.display === 'quote';
-      const rendered = isQuote ? renderQuote(val) : renderContent(val);
+      const isCode = comp.config?.display === 'code';
+      let rendered;
+      if (isQuote) {
+        rendered = renderQuote(val);
+      } else if (isCode) {
+        rendered = `<pre><code>${escapeHtml(val)}</code></pre>`;
+      } else {
+        rendered = renderContent(val);
+      }
       const content = isSearch ? highlightHtml(rendered, q) : rendered;
       if (isQuote) {
         quoteFields.push({ id: fieldId, label: comp.label });
@@ -845,8 +853,9 @@ function editNote(index) {
       if (comp.type === 'textarea') {
         const hasTable = comp.config?.hasTable;
         const isQuote = comp.config?.display === 'quote';
-        const cssClass = isQuote ? 'edit-quote' : 'edit-content';
-        const rows = isQuote ? '2' : '3';
+        const isCode = comp.config?.display === 'code';
+        const cssClass = isQuote ? 'edit-quote' : (isCode ? 'edit-code' : 'edit-content');
+        const rows = isQuote ? '2' : (isCode ? '4' : '3');
         fieldsHtml += `
           <div class="edit-col">
             <label class="edit-label">${escapeHtml(comp.label)}</label>
@@ -2194,6 +2203,7 @@ function getCompSummary(comp) {
   if (comp.config?.format) return comp.config.format;
   if (comp.config?.display === 'bookname') return '《》';
   if (comp.config?.display === 'quote') return '引用';
+  if (comp.config?.display === 'code') return '代码';
   if (comp.config?.hasTable) return '表格';
   return '';
 }
@@ -2215,6 +2225,7 @@ function toggleCompEdit(compId) {
 
   if (comp.type === 'textarea') {
     const isQuote = comp.config?.display === 'quote';
+    const isCode = comp.config?.display === 'code';
     configHtml = `
       <div class="comp-edit-row">
         <span class="comp-edit-label">插入表格</span>
@@ -2223,6 +2234,10 @@ function toggleCompEdit(compId) {
       <div class="comp-edit-row">
         <span class="comp-edit-label">引用样式</span>
         <label class="comp-edit-check"><input type="checkbox" data-config="quote" ${isQuote ? 'checked' : ''}> 折叠+绿线</label>
+      </div>
+      <div class="comp-edit-row">
+        <span class="comp-edit-label">代码样式</span>
+        <label class="comp-edit-check"><input type="checkbox" data-config="code" ${isCode ? 'checked' : ''}> 等宽字体+背景</label>
       </div>`;
   } else if (comp.type === 'dropdown') {
     const displayVal = comp.config?.display === 'bookname' ? '书名号《》' : '纯文本';
@@ -2320,6 +2335,8 @@ function toggleCompEdit(compId) {
       if (el.type === 'checkbox') {
         if (key === 'quote') {
           comp.config.display = el.checked ? 'quote' : 'plain';
+        } else if (key === 'code') {
+          comp.config.display = el.checked ? 'code' : 'plain';
         } else {
           comp.config[key] = el.checked;
         }
@@ -2703,7 +2720,7 @@ function renderContent(str) {
     const rawLine = lines[i];
     const trimmed = rawLine.trim();
 
-    // 代码块处理
+    // 代码块处理（优先级最高）
     if (trimmed.startsWith('```')) {
       if (inCodeBlock) {
         // 结束代码块
@@ -2720,12 +2737,13 @@ function renderContent(str) {
       continue;
     }
 
-    // 在代码块内，直接收集行
+    // 在代码块内，直接收集行（不做任何处理）
     if (inCodeBlock) {
       codeLines.push(rawLine);
       continue;
     }
 
+    // 以下是代码块外的处理
     if (trimmed === '') {
       if (inTable) { html += renderTable(tableLines); inTable = false; tableLines = []; }
       html += '<div class="para-gap"></div>';
