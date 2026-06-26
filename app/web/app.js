@@ -2467,7 +2467,13 @@ function setupEvents() {
     const noteTag = e.target.closest('.note-tag');
     if (noteTag && noteTag.dataset.notebook) {
       e.stopPropagation();
-      await openNotebook(noteTag.dataset.notebook);
+      const notebook = noteTag.dataset.notebook;
+      navigatingToNote = true;
+      searchInput.value = '';
+      searchClear.style.display = 'none';
+      searchMode = false;
+      navigatingToNote = false;
+      await openNotebook(notebook);
       return;
     }
 
