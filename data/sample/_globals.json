@@ -1,13 +1,13 @@
 {
-  "books": ["中国古代文化常识"],
-  "dynasties": ["东汉", "殷商", "唐代", "战国", "春秋", "先秦", "汉代", "西晋", "西汉", "秦朝"],
-  "lastBook": "中国古代文化常识",
-  "lastDynasty": "唐代",
-  "dropdown_book": ["中国古代文化常识"],
-  "dropdown_dynasty": ["东汉", "殷商", "唐代", "战国", "春秋", "先秦", "汉代", "西晋", "西汉", "秦朝"],
-  "last_book": "中国古代文化常识",
-  "last_dynasty": "唐代",
-  "notebooks": ["天文", "历法", "乐律", "诗词赏析", "学习笔记", "技术文档", "漫画绘本", "哲学摘录", "书法碑帖"],
+  "books": [],
+  "dynasties": [],
+  "lastBook": "",
+  "lastDynasty": "",
+  "dropdown_book": [],
+  "dropdown_dynasty": [],
+  "last_book": "",
+  "last_dynasty": "",
+  "notebooks": [],
   "fieldComponents": [
     {
       "id": "content",

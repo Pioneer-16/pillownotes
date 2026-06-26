@@ -215,8 +215,18 @@ async function init() {
 
 // ===== 主题 =====
 function loadTheme() {
-  const theme = localStorage.getItem('zhenshuge_theme') || 'light';
-  document.documentElement.setAttribute('data-theme', theme);
+  const saved = localStorage.getItem('zhenshuge_theme');
+  if (saved) {
+    document.documentElement.setAttribute('data-theme', saved);
+  } else {
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    document.documentElement.setAttribute('data-theme', prefersDark ? 'dark' : 'light');
+  }
+  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
+    if (!localStorage.getItem('zhenshuge_theme')) {
+      document.documentElement.setAttribute('data-theme', e.matches ? 'dark' : 'light');
+    }
+  });
 }
 
 function toggleTheme() {
