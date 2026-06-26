@@ -215,9 +215,10 @@ const server = http.createServer(async (req, res) => {
     if (!checkAuth(req)) return sendError(res, '需要验证密码', 401);
     const data = await parseBody(req);
     const globals = getGlobals();
-    // 通用合并：保留已有的 key，用新数据覆盖
+    // 字符串数组合并去重，对象数组直接覆盖
+    const stringArrayKeys = new Set(['books', 'dynasties', 'notebooks']);
     for (const key of Object.keys(data)) {
-      if (Array.isArray(data[key]) && Array.isArray(globals[key])) {
+      if (Array.isArray(data[key]) && Array.isArray(globals[key]) && (stringArrayKeys.has(key) || key.startsWith('dropdown_'))) {
         globals[key] = [...new Set([...globals[key], ...data[key]])];
       } else {
         globals[key] = data[key];
