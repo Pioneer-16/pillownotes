@@ -1579,8 +1579,12 @@ function setupSettingsEvents() {
   }
 
   settingsClose.addEventListener('click', closeSettings);
+  let settingsMouseDownTarget = null;
+  settingsOverlay.addEventListener('mousedown', (e) => {
+    settingsMouseDownTarget = e.target;
+  });
   settingsOverlay.addEventListener('click', (e) => {
-    if (e.target === settingsOverlay) closeSettings();
+    if (e.target === settingsOverlay && settingsMouseDownTarget === settingsOverlay) closeSettings();
   });
 
   btnNewTemplate.addEventListener('click', createNewTemplate);
