@@ -242,8 +242,14 @@ function loadTheme() {
 function toggleTheme() {
   const current = document.documentElement.getAttribute('data-theme');
   const next = current === 'dark' ? 'light' : 'dark';
+  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  const systemTheme = prefersDark ? 'dark' : 'light';
   document.documentElement.setAttribute('data-theme', next);
-  localStorage.setItem('zhenshuge_theme', next);
+  if (next === systemTheme) {
+    localStorage.removeItem('zhenshuge_theme');
+  } else {
+    localStorage.setItem('zhenshuge_theme', next);
+  }
 }
 
 // ===== 笔记本列表 =====
@@ -2403,10 +2409,20 @@ function setupEvents() {
   const authError = document.getElementById('auth-error');
   const btnAuth = document.getElementById('btn-auth');
 
-  btnAuth.addEventListener('click', () => {
+  btnAuth.addEventListener('click', async () => {
     if (document.body.classList.contains('auth-unlocked')) {
       clearAuth();
     } else {
+      try {
+        const checkRes = await fetch(`${API_BASE}/api/auth/check`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-Auth-Token': '' }
+        });
+        if (checkRes.ok) {
+          setAuth('');
+          return;
+        }
+      } catch (e) {}
       authOverlay.style.display = 'flex';
       authInput.value = '';
       authError.style.display = 'none';
