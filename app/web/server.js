@@ -151,6 +151,7 @@ function parseBody(req) {
 }
 
 function checkAuth(req) {
+  if (!AUTH_PASSWORD) return true;
   const token = req.headers['x-auth-token'];
   return token === AUTH_PASSWORD;
 }
