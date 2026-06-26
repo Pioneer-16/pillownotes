@@ -102,6 +102,8 @@ let allNotebooks = [];
 let globals = { books: [], dynasties: [], lastBook: '', lastDynasty: '', fieldComponents: [], cardTemplates: [], notebookTemplates: {} };
 let searchMode = false;
 let navigatingToNote = false;
+let activeFilters = {};
+let originalNotes = null;
 
 // ===== 模板数据层 =====
 function getActiveTemplate() {
@@ -208,6 +210,7 @@ async function init() {
   await loadFiles();
   setupEvents();
   setupSearch();
+  setupFilter();
 }
 
 // ===== 主题 =====
@@ -301,6 +304,11 @@ async function saveFileOrder() {
 async function openNotebook(name) {
   currentNotebook = name;
   notes = await storage.getNotes(name);
+  activeFilters = {};
+  originalNotes = null;
+  document.getElementById('filter-tags').style.display = 'none';
+  document.getElementById('filter-panel').style.display = 'none';
+  document.getElementById('btn-filter').classList.remove('active');
   fileTitle.textContent = name;
   placeholder.style.display = 'none';
   notesView.style.display = 'flex';
@@ -510,6 +518,9 @@ async function doSearch(q) {
 
 async function exitSearch() {
   searchMode = false;
+  activeFilters = {};
+  originalNotes = null;
+  document.getElementById('filter-tags').style.display = 'none';
   if (currentNotebook) {
     notes = await storage.getNotes(currentNotebook);
     fileTitle.textContent = currentNotebook;
@@ -558,6 +569,175 @@ function highlightHtml(html, q) {
   const safeQ = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   return html.replace(/>([^<]*)</g, (match, text) => {
     return '>' + text.replace(new RegExp(safeQ, 'gi'), '<mark>$&</mark>') + '<';
+  });
+}
+
+// ===== 筛选功能 =====
+function setupFilter() {
+  const btn = document.getElementById('btn-filter');
+  const panel = document.getElementById('filter-panel');
+
+  btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const isVisible = panel.style.display !== 'none';
+    if (isVisible) {
+      panel.style.display = 'none';
+    } else {
+      renderFilterPanel();
+      const rect = btn.getBoundingClientRect();
+      panel.style.display = 'block';
+      panel.style.top = (rect.bottom + 8) + 'px';
+      const header = document.querySelector('.notes-header');
+      const hRect = header.getBoundingClientRect();
+      panel.style.left = hRect.left + 'px';
+      panel.style.width = hRect.width + 'px';
+    }
+  });
+
+  document.addEventListener('click', (e) => {
+    if (!panel.contains(e.target) && e.target !== btn && !btn.contains(e.target)) {
+      panel.style.display = 'none';
+    }
+  });
+}
+
+function renderFilterPanel() {
+  const panel = document.getElementById('filter-panel');
+  const template = getActiveTemplate();
+  let html = '';
+
+  for (const fieldId of template.fieldIds) {
+    const comp = getComponentById(fieldId);
+    if (!comp) continue;
+
+    if (comp.type === 'dropdown') {
+      const globalOptions = globals[`dropdown_${fieldId}`] || [];
+      const noteOptions = notes.map(n => n[fieldId]).filter(Boolean);
+      const options = [...new Set([...globalOptions, ...noteOptions])];
+      if (options.length === 0) continue;
+
+      const selected = activeFilters[fieldId] || '';
+      html += `<div class="filter-section" data-field-id="${fieldId}">
+        <span class="filter-section-label">${escapeHtml(comp.label)}</span>
+        <div class="filter-options">
+          ${options.map(opt => `<span class="filter-opt ${selected === opt ? 'selected' : ''}" data-field="${fieldId}" data-value="${escapeHtml(opt)}">${escapeHtml(opt)}</span>`).join('')}
+        </div>
+      </div>`;
+    } else {
+      const val = activeFilters[fieldId] || '';
+      html += `<div class="filter-section" data-field-id="${fieldId}">
+        <span class="filter-section-label">${escapeHtml(comp.label)}</span>
+        <input type="text" class="filter-search-input" data-field="${fieldId}" placeholder="搜索${escapeHtml(comp.label)}…" value="${escapeHtml(val)}">
+      </div>`;
+    }
+  }
+
+  if (!html) {
+    html = '<p style="color:var(--color-text-secondary);font-size:13px;text-align:center;margin:8px 0">当前模板无可筛选字段</p>';
+  }
+
+  panel.innerHTML = html;
+
+  // 绑定下拉选项点击
+  panel.querySelectorAll('.filter-opt').forEach(opt => {
+    opt.addEventListener('click', () => {
+      const fieldId = opt.dataset.field;
+      const value = opt.dataset.value;
+      if (activeFilters[fieldId] === value) {
+        delete activeFilters[fieldId];
+      } else {
+        activeFilters[fieldId] = value;
+      }
+      renderFilterPanel();
+      applyFilters();
+    });
+  });
+
+  // 绑定搜索输入
+  let filterTimer = null;
+  panel.querySelectorAll('.filter-search-input').forEach(input => {
+    input.addEventListener('input', () => {
+      clearTimeout(filterTimer);
+      filterTimer = setTimeout(() => {
+        const fieldId = input.dataset.field;
+        const value = input.value.trim();
+        if (value) {
+          activeFilters[fieldId] = value;
+        } else {
+          delete activeFilters[fieldId];
+        }
+        applyFilters();
+      }, 300);
+    });
+  });
+}
+
+function applyFilters() {
+  const filterKeys = Object.keys(activeFilters);
+
+  // 恢复原始笔记
+  if (originalNotes) {
+    notes = [...originalNotes];
+  }
+
+  if (filterKeys.length === 0) {
+    originalNotes = null;
+    if (currentNotebook && !searchMode) {
+      fileTitle.textContent = currentNotebook;
+    }
+  } else {
+    if (!originalNotes) originalNotes = [...notes];
+
+    notes = notes.filter(note => {
+      return filterKeys.every(fieldId => {
+        const filterVal = activeFilters[fieldId].toLowerCase();
+        const comp = getComponentById(fieldId);
+        if (!comp) return true;
+        const noteVal = String(note[fieldId] || '').toLowerCase();
+        if (comp.type === 'dropdown') {
+          return noteVal === filterVal;
+        }
+        return noteVal.includes(filterVal);
+      });
+    });
+
+    if (currentNotebook && !searchMode) {
+      fileTitle.textContent = `${currentNotebook} — 筛选 ${notes.length} 条`;
+    }
+  }
+
+  renderNotes();
+  renderFilterTags();
+}
+
+function renderFilterTags() {
+  const container = document.getElementById('filter-tags');
+  const filterKeys = Object.keys(activeFilters);
+
+  if (filterKeys.length === 0) {
+    container.style.display = 'none';
+    return;
+  }
+
+  container.style.display = 'flex';
+  container.innerHTML = filterKeys.map(fieldId => {
+    const comp = getComponentById(fieldId);
+    const label = comp ? comp.label : fieldId;
+    const value = activeFilters[fieldId];
+    return `<span class="filter-tag">
+      <span class="filter-tag-label">${escapeHtml(label)}</span>
+      ${escapeHtml(value)}
+      <span class="filter-tag-x" data-field="${fieldId}">×</span>
+    </span>`;
+  }).join('');
+
+  container.querySelectorAll('.filter-tag-x').forEach(x => {
+    x.addEventListener('click', () => {
+      delete activeFilters[x.dataset.field];
+      applyFilters();
+      const panel = document.getElementById('filter-panel');
+      if (panel.style.display !== 'none') renderFilterPanel();
+    });
   });
 }
 
@@ -1100,7 +1280,12 @@ async function saveEdit(index) {
   await storage.saveGlobals(globals);
 
   notes = await storage.getNotes(currentNotebook);
-  renderNotes();
+  originalNotes = null;
+  if (Object.keys(activeFilters).length > 0) {
+    applyFilters();
+  } else {
+    renderNotes();
+  }
 
   setTimeout(() => {
     const card = document.querySelector(`.note-card[data-index="${index}"]`);
@@ -1133,7 +1318,55 @@ async function cancelEdit(index) {
     await storage.saveAllNotes(allNotes);
     notes = await storage.getNotes(currentNotebook);
   }
-  renderNotes();
+  originalNotes = null;
+  if (Object.keys(activeFilters).length > 0) {
+    applyFilters();
+  } else {
+    renderNotes();
+  }
+}
+
+// ===== 删除笔记 =====
+async function deleteNote(index) {
+  const ok = await showModal('确定删除这条笔记吗？');
+  if (!ok) return;
+  const note = notes[index];
+  const allNotes = await storage.getAllNotes();
+  const globalIdx = allNotes.findIndex(n => n.id === note.id);
+  if (globalIdx !== -1) allNotes.splice(globalIdx, 1);
+  await storage.saveAllNotes(allNotes);
+  notes = await storage.getNotes(currentNotebook);
+  originalNotes = null;
+  if (Object.keys(activeFilters).length > 0) {
+    applyFilters();
+  } else {
+    renderNotes();
+  }
+}
+
+// ===== 新增笔记 =====
+async function addNote() {
+  if (!currentNotebook) return;
+  const template = getActiveTemplate();
+  const newNote = {
+    id: Date.now().toString(36) + Math.random().toString(36).slice(2, 8),
+    notebooks: [currentNotebook],
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  };
+  for (const fieldId of template.fieldIds) {
+    if (newNote[fieldId] === undefined) newNote[fieldId] = '';
+  }
+  const allNotes = await storage.getAllNotes();
+  allNotes.push(newNote);
+  await storage.saveAllNotes(allNotes);
+  notes = await storage.getNotes(currentNotebook);
+  originalNotes = null;
+  if (Object.keys(activeFilters).length > 0) {
+    applyFilters();
+  } else {
+    renderNotes();
+  }
 }
 
 // ===== 删除笔记 =====
@@ -1273,7 +1506,12 @@ async function importData(file) {
       await loadFiles();
       if (currentNotebook) {
         notes = await storage.getNotes(currentNotebook);
-        renderNotes();
+        originalNotes = null;
+        if (Object.keys(activeFilters).length > 0) {
+          applyFilters();
+        } else {
+          renderNotes();
+        }
       }
       alert('导入成功！');
     } catch (err) {

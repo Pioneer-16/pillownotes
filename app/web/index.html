@@ -53,11 +53,18 @@
         <div class="notes-view" id="notes-view" style="display:none">
           <div class="notes-header">
             <h2 class="file-title" id="file-title"></h2>
-            <button class="btn-add" id="btn-add-note" title="新增笔记">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-              <span>新增</span>
-            </button>
+            <div class="notes-header-actions">
+              <button class="btn-filter" id="btn-filter" title="筛选">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+              </button>
+              <button class="btn-add" id="btn-add-note" title="新增笔记">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                <span>新增</span>
+              </button>
+            </div>
           </div>
+          <div class="filter-tags" id="filter-tags" style="display:none"></div>
+          <div class="filter-panel" id="filter-panel" style="display:none"></div>
           <div class="notes-list" id="notes-list"></div>
         </div>
       </section>

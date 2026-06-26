@@ -414,6 +414,130 @@ body:not(.auth-unlocked) .file-item-delete {
   color: var(--color-ink);
 }
 
+.notes-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-filter {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--color-paper-deep);
+  border-radius: var(--radius);
+  background: var(--color-paper);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.btn-filter:hover {
+  border-color: var(--color-bamboo);
+  color: var(--color-bamboo);
+}
+.btn-filter.active {
+  background: var(--color-bamboo-mist);
+  border-color: var(--color-bamboo);
+  color: var(--color-bamboo);
+}
+
+.filter-panel {
+  position: fixed;
+  background: var(--color-paper);
+  border: 1px solid var(--color-paper-deep);
+  border-radius: var(--radius);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+  z-index: 1000;
+  padding: 12px 16px;
+  max-height: 60vh;
+  overflow-y: auto;
+}
+.filter-section {
+  margin-bottom: 12px;
+}
+.filter-section:last-child {
+  margin-bottom: 0;
+}
+.filter-section-label {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  margin-bottom: 6px;
+  display: block;
+}
+.filter-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.filter-opt {
+  padding: 4px 12px;
+  border: 1px solid var(--color-paper-deep);
+  border-radius: 12px;
+  background: var(--color-paper);
+  color: var(--color-text);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+.filter-opt:hover {
+  border-color: var(--color-bamboo);
+}
+.filter-opt.selected {
+  background: var(--color-bamboo);
+  border-color: var(--color-bamboo);
+  color: #fff;
+}
+.filter-search-input {
+  width: 100%;
+  padding: 6px 10px;
+  border: 1px solid var(--color-paper-deep);
+  border-radius: var(--radius);
+  font-size: 13px;
+  background: var(--color-paper);
+  color: var(--color-text);
+  outline: none;
+}
+.filter-search-input:focus {
+  border-color: var(--color-bamboo);
+}
+
+.filter-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 0 40px 8px;
+  max-width: 800px;
+  width: 100%;
+  margin: 0 auto;
+  background: var(--color-paper);
+}
+.filter-tag {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  background: var(--color-bamboo-mist);
+  border-radius: 12px;
+  font-size: 12px;
+  color: var(--color-bamboo);
+}
+.filter-tag-label {
+  color: var(--color-text-secondary);
+}
+.filter-tag-x {
+  cursor: pointer;
+  margin-left: 2px;
+  opacity: 0.6;
+  font-size: 14px;
+  line-height: 1;
+}
+.filter-tag-x:hover {
+  opacity: 1;
+}
+
 .btn-add {
   display: flex;
   align-items: center;
