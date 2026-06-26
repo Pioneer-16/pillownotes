@@ -1578,15 +1578,31 @@ async function importData(file) {
       const allNotes = await storage.getAllNotes();
       allNotes.push(...importedNotes);
       await storage.saveAllNotes(allNotes);
+
+      // 更新全局笔记本列表
+      for (const note of importedNotes) {
+        if (note.notebooks) {
+          for (const nb of note.notebooks) {
+            if (!globals.notebooks) globals.notebooks = [];
+            if (!globals.notebooks.includes(nb)) {
+              globals.notebooks.push(nb);
+            }
+          }
+        }
+      }
+      await storage.saveGlobals(globals);
+
       await loadFiles();
       if (currentNotebook) {
         notes = await storage.getNotes(currentNotebook);
-        originalNotes = null;
-        if (Object.keys(activeFilters).length > 0) {
-          applyFilters();
-        } else {
-          renderNotes();
-        }
+      } else {
+        notes = allNotes;
+      }
+      originalNotes = null;
+      if (Object.keys(activeFilters).length > 0) {
+        applyFilters();
+      } else {
+        renderNotes();
       }
       alert('导入成功！');
     } catch (err) {
