@@ -29,7 +29,7 @@
 
 ```bash
 # 克隆项目
-git clone https://github.com/你的用户名/pillownotes.git
+git clone https://github.com/Pioneer-16/pillownotes.git
 cd pillownotes
 
 # 安装依赖
@@ -80,4 +80,4 @@ AUTH_PASSWORD=your_password
 
 ## 💬 反馈
 
-如果觉得有用，欢迎 star ⭐ 或赞助支持！
+如果觉得有用，欢迎 star ⭐ 或[赞助支持](https://ifdian.net/a/yztyzhen)！
