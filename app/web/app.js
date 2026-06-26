@@ -2469,23 +2469,14 @@ function setupEvents() {
       e.stopPropagation();
       const notebook = noteTag.dataset.notebook;
       const card = noteTag.closest('.note-card');
-      // 高亮动画
-      if (card) {
-        card.style.transition = 'box-shadow 0.3s ease, background-color 0.3s ease, transform 0.3s ease, opacity 0.3s ease';
-        card.style.boxShadow = '0 0 0 3px var(--color-bamboo), 0 4px 20px rgba(45, 90, 61, 0.3)';
-        card.style.backgroundColor = 'var(--color-bamboo-mist)';
-        card.style.transform = 'scale(1.02)';
-      }
-      notesList.style.transition = 'opacity 0.25s ease';
-      notesList.style.opacity = '0';
-      await new Promise(r => setTimeout(r, 250));
+      const noteId = card?.dataset.id;
       navigatingToNote = true;
       searchInput.value = '';
       searchClear.style.display = 'none';
       searchMode = false;
       navigatingToNote = false;
       await openNotebook(notebook);
-      notesList.style.opacity = '1';
+      if (noteId) scrollToNote(noteId);
       return;
     }
 
