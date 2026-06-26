@@ -1,9 +1,9 @@
 {
   "books": ["示例书籍"],
-  "dynasties": ["现代"],
+  "dynasties": ["现代", "先秦", "秦", "汉", "三国", "魏晋", "南北朝", "隋", "唐", "宋", "元", "明", "清"],
   "lastBook": "示例书籍",
   "lastDynasty": "现代",
-  "notebooks": ["读书笔记"],
+  "notebooks": ["读书笔记", "诗词赏析", "学习笔记", "技术文档", "漫画绘本", "哲学摘录", "书法碑帖"],
   "fieldComponents": [
     {
       "id": "content",
@@ -29,7 +29,7 @@
     {
       "id": "dynasty",
       "type": "dropdown",
-      "label": "朝代 / 时间",
+      "label": "朝代",
       "placeholder": "朝代",
       "config": {}
     },
@@ -39,6 +39,195 @@
       "label": "引用",
       "placeholder": "引用原文…",
       "config": { "hasTable": true, "display": "quote" }
+    },
+    {
+      "id": "poem_text",
+      "type": "textarea",
+      "label": "诗词原文",
+      "placeholder": "输入诗词原文…",
+      "config": { "hasTable": false, "display": "quote" }
+    },
+    {
+      "id": "author",
+      "type": "dropdown",
+      "label": "作者",
+      "placeholder": "作者",
+      "config": {}
+    },
+    {
+      "id": "source",
+      "type": "input",
+      "label": "出处",
+      "placeholder": "《全唐诗》等",
+      "config": {}
+    },
+    {
+      "id": "analysis",
+      "type": "textarea",
+      "label": "赏析",
+      "placeholder": "个人赏析和理解…",
+      "config": { "hasTable": false }
+    },
+    {
+      "id": "rating",
+      "type": "rating",
+      "label": "评分",
+      "placeholder": "",
+      "config": {}
+    },
+    {
+      "id": "course_name",
+      "type": "input",
+      "label": "课程名称",
+      "placeholder": "课程或教材名",
+      "config": {}
+    },
+    {
+      "id": "chapter",
+      "type": "input",
+      "label": "章节",
+      "placeholder": "第X章",
+      "config": {}
+    },
+    {
+      "id": "knowledge_point",
+      "type": "textarea",
+      "label": "知识点",
+      "placeholder": "核心知识点…",
+      "config": { "hasTable": true }
+    },
+    {
+      "id": "exercises",
+      "type": "textarea",
+      "label": "练习/思考",
+      "placeholder": "练习题或思考…",
+      "config": { "hasTable": true }
+    },
+    {
+      "id": "mastery",
+      "type": "dropdown",
+      "label": "掌握程度",
+      "placeholder": "掌握程度",
+      "config": {}
+    },
+    {
+      "id": "tech_name",
+      "type": "input",
+      "label": "技术名称",
+      "placeholder": "技术或工具名",
+      "config": {}
+    },
+    {
+      "id": "version",
+      "type": "input",
+      "label": "版本",
+      "placeholder": "v1.0",
+      "config": {}
+    },
+    {
+      "id": "usage_example",
+      "type": "textarea",
+      "label": "用法示例",
+      "placeholder": "代码示例或用法…",
+      "config": { "hasTable": true }
+    },
+    {
+      "id": "notes",
+      "type": "textarea",
+      "label": "注意事项",
+      "placeholder": "注意事项和踩坑记录…",
+      "config": { "hasTable": false }
+    },
+    {
+      "id": "reference_url",
+      "type": "url",
+      "label": "参考链接",
+      "placeholder": "添加链接",
+      "config": {}
+    },
+    {
+      "id": "work_name",
+      "type": "input",
+      "label": "作品名",
+      "placeholder": "漫画/绘本名称",
+      "config": {}
+    },
+    {
+      "id": "art_style",
+      "type": "textarea",
+      "label": "画风评价",
+      "placeholder": "画风特点和评价…",
+      "config": { "hasTable": false }
+    },
+    {
+      "id": "story_summary",
+      "type": "textarea",
+      "label": "故事梗概",
+      "placeholder": "故事内容概要…",
+      "config": { "hasTable": false }
+    },
+    {
+      "id": "school",
+      "type": "dropdown",
+      "label": "学派",
+      "placeholder": "儒家、道家等",
+      "config": {}
+    },
+    {
+      "id": "original_text",
+      "type": "textarea",
+      "label": "原文",
+      "placeholder": "原文摘录…",
+      "config": { "hasTable": false, "display": "quote" }
+    },
+    {
+      "id": "translation",
+      "type": "textarea",
+      "label": "译注",
+      "placeholder": "译文或注释…",
+      "config": { "hasTable": false }
+    },
+    {
+      "id": "thoughts",
+      "type": "textarea",
+      "label": "个人感悟",
+      "placeholder": "个人理解和思考…",
+      "config": { "hasTable": false }
+    },
+    {
+      "id": "calligraphy_name",
+      "type": "input",
+      "label": "碑帖名",
+      "placeholder": "碑帖名称",
+      "config": {}
+    },
+    {
+      "id": "calligrapher",
+      "type": "dropdown",
+      "label": "书法家",
+      "placeholder": "书法家",
+      "config": {}
+    },
+    {
+      "id": "script_type",
+      "type": "dropdown",
+      "label": "书体",
+      "placeholder": "楷书、行书等",
+      "config": {}
+    },
+    {
+      "id": "image",
+      "type": "textarea",
+      "label": "图片",
+      "placeholder": "粘贴碑帖图片…",
+      "config": { "hasTable": false }
+    },
+    {
+      "id": "evaluation",
+      "type": "textarea",
+      "label": "评价",
+      "placeholder": "艺术特点和个人评价…",
+      "config": { "hasTable": false }
     }
   ],
   "cardTemplates": [
@@ -46,9 +235,45 @@
       "id": "default",
       "name": "默认笔记",
       "fieldIds": ["content", "book", "page", "dynasty", "quote"]
+    },
+    {
+      "id": "tpl_poetry",
+      "name": "诗词赏析",
+      "fieldIds": ["poem_text", "author", "dynasty", "source", "analysis", "rating"]
+    },
+    {
+      "id": "tpl_study",
+      "name": "学习笔记",
+      "fieldIds": ["content", "course_name", "chapter", "knowledge_point", "exercises", "mastery"]
+    },
+    {
+      "id": "tpl_tech",
+      "name": "技术文档",
+      "fieldIds": ["tech_name", "version", "content", "usage_example", "notes", "reference_url"]
+    },
+    {
+      "id": "tpl_comic",
+      "name": "漫画绘本",
+      "fieldIds": ["work_name", "author", "art_style", "story_summary", "rating"]
+    },
+    {
+      "id": "tpl_philosophy",
+      "name": "哲学摘录",
+      "fieldIds": ["book", "school", "original_text", "translation", "thoughts", "rating"]
+    },
+    {
+      "id": "tpl_calligraphy",
+      "name": "书法碑帖",
+      "fieldIds": ["calligraphy_name", "calligrapher", "dynasty", "script_type", "image", "evaluation"]
     }
   ],
   "notebookTemplates": {
-    "读书笔记": "default"
+    "读书笔记": "default",
+    "诗词赏析": "tpl_poetry",
+    "学习笔记": "tpl_study",
+    "技术文档": "tpl_tech",
+    "漫画绘本": "tpl_comic",
+    "哲学摘录": "tpl_philosophy",
+    "书法碑帖": "tpl_calligraphy"
   }
 }

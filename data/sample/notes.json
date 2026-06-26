@@ -8,5 +8,69 @@
     "updatedAt": "2026-06-25T00:00:00.000Z",
     "notebooks": ["读书笔记"],
     "id": "sample001"
+  },
+  {
+    "poem_text": "床前明月光，疑是地上霜。\n举头望明月，低头思故乡。",
+    "author": "李白",
+    "dynasty": "唐",
+    "source": "《静夜思》",
+    "analysis": "此诗以明白如话的语言雕琢出明静醉人的秋夜的意境。以清新朴素的笔触，抒写了丰富深曲的内容。",
+    "rating": 5,
+    "updatedAt": "2026-06-25T00:00:00.000Z",
+    "notebooks": ["诗词赏析"],
+    "id": "sample002"
+  },
+  {
+    "content": "变量是存储数据值的容器。在 Python 中，变量不需要声明类型，直接赋值即可。",
+    "course_name": "Python 入门教程",
+    "chapter": "第2章 变量与数据类型",
+    "knowledge_point": "变量命名规则：\n- 由字母、数字、下划线组成\n- 不能以数字开头\n- 区分大小写",
+    "exercises": "练习：创建三个不同类型的变量并打印它们的值和类型。",
+    "mastery": "掌握",
+    "updatedAt": "2026-06-25T00:00:00.000Z",
+    "notebooks": ["学习笔记"],
+    "id": "sample003"
+  },
+  {
+    "tech_name": "Git",
+    "version": "2.40",
+    "content": "Git 是一个分布式版本控制系统，用于跟踪文件变更。",
+    "usage_example": "# 初始化仓库\ngit init\n\n# 添加文件\ngit add .\n\n# 提交\ngit commit -m \"first commit\"",
+    "notes": "提交前务必检查 .gitignore，避免提交敏感文件如 .env、node_modules 等。",
+    "reference_url": ["https://git-scm.com/doc"],
+    "updatedAt": "2026-06-25T00:00:00.000Z",
+    "notebooks": ["技术文档"],
+    "id": "sample004"
+  },
+  {
+    "work_name": "千与千寻",
+    "author": "宫崎骏",
+    "art_style": "水彩风格细腻柔和，场景设计充满想象力，色彩温暖治愈。",
+    "story_summary": "少女千寻误入神灵世界，为解救变成猪的父母，在汤屋工作并经历成长的故事。",
+    "rating": 5,
+    "updatedAt": "2026-06-25T00:00:00.000Z",
+    "notebooks": ["漫画绘本"],
+    "id": "sample005"
+  },
+  {
+    "book": "论语",
+    "school": "儒家",
+    "original_text": "学而时习之，不亦说乎？有朋自远方来，不亦乐乎？人不知而不愠，不亦君子乎？",
+    "translation": "学习了知识然后按时温习，不是很愉快吗？有志同道合的朋友从远方来，不是很快乐吗？人家不了解我，我却不恼怒，不是有修养的君子吗？",
+    "thoughts": "开篇三问，层层递进：学习之乐、交友之乐、修身之境。",
+    "rating": 5,
+    "updatedAt": "2026-06-25T00:00:00.000Z",
+    "notebooks": ["哲学摘录"],
+    "id": "sample006"
+  },
+  {
+    "calligraphy_name": "兰亭集序",
+    "calligrapher": "王羲之",
+    "dynasty": "东晋",
+    "script_type": "行书",
+    "evaluation": "被誉为「天下第一行书」，笔法飘逸洒脱，结构变化多端，气韵生动自然。",
+    "updatedAt": "2026-06-25T00:00:00.000Z",
+    "notebooks": ["书法碑帖"],
+    "id": "sample007"
   }
 ]
