@@ -106,6 +106,31 @@
     </div>
   </div>
 
+  <!-- 表格插入弹窗 -->
+  <div class="modal-overlay" id="table-overlay" style="display:none">
+    <div class="modal modal-table animate-scale-in">
+      <p class="modal-text">插入表格</p>
+      <div class="table-size-picker">
+        <button class="table-size-btn" data-action="table-rows-minus">−</button>
+        <span class="table-size-value" id="table-rows">3</span>
+        <span class="table-size-label">行</span>
+        <button class="table-size-btn" data-action="table-rows-plus">+</button>
+        <span class="table-size-sep">×</span>
+        <button class="table-size-btn" data-action="table-cols-minus">−</button>
+        <span class="table-size-value" id="table-cols">3</span>
+        <span class="table-size-label">列</span>
+        <button class="table-size-btn" data-action="table-cols-plus">+</button>
+      </div>
+      <div class="table-editor-wrap">
+        <table class="table-editor" id="table-editor"></table>
+      </div>
+      <div class="modal-actions">
+        <button class="modal-btn modal-btn-cancel" id="table-cancel">取消</button>
+        <button class="modal-btn modal-btn-confirm" id="table-confirm">插入</button>
+      </div>
+    </div>
+  </div>
+
   <!-- 设置弹窗 -->
   <div class="modal-overlay" id="settings-overlay" style="display:none">
     <div class="settings-modal animate-scale-in">

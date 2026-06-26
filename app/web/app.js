@@ -1190,38 +1190,77 @@ function autoResize(el) {
   if (scrollContainer) scrollContainer.scrollTop = scrollTop;
 }
 
+let tableInsertTarget = null;
+let tableInsertPos = null;
+
 function insertTable(btn) {
   const target = btn.dataset.target;
   const card = btn.closest('.note-card');
   const textarea = card.querySelector(`textarea[data-field-id="${target}"]`);
 
-  const input = prompt('输入表格大小（行 x 列），如：3x2', '3x2');
-  if (!input) return;
+  tableInsertTarget = textarea;
+  tableInsertPos = {
+    start: textarea.selectionStart,
+    end: textarea.selectionEnd
+  };
 
-  const match = input.match(/(\d+)\s*[x×X*]\s*(\d+)/);
-  if (!match) { alert('格式不正确，请输入如 3x2'); return; }
+  document.getElementById('table-rows').textContent = '3';
+  document.getElementById('table-cols').textContent = '3';
+  showTableEditor(3, 3);
+  document.getElementById('table-overlay').style.display = 'flex';
+}
 
-  const rows = parseInt(match[1]);
-  const cols = parseInt(match[2]);
+function showTableEditor(rows, cols) {
+  const editor = document.getElementById('table-editor');
+  let html = '<tr class="table-header-row">';
+  for (let c = 0; c < cols; c++) {
+    html += `<td><input type="text" placeholder="列${c + 1}" data-row="0" data-col="${c}"></td>`;
+  }
+  html += '</tr>';
+  for (let r = 1; r < rows; r++) {
+    html += '<tr>';
+    for (let c = 0; c < cols; c++) {
+      html += `<td><input type="text" placeholder="" data-row="${r}" data-col="${c}"></td>`;
+    }
+    html += '</tr>';
+  }
+  editor.innerHTML = html;
+}
 
-  const header = '|' + Array(cols).fill('').map((_, i) => '列' + (i + 1)).join('|') + '|';
-  const separator = '|' + Array(cols).fill('--').join('|') + '|';
-  const dataRows = Array(rows).fill('|' + Array(cols).fill('  ').join('|') + '|').join('\n');
+function insertTableConfirm() {
+  const editor = document.getElementById('table-editor');
+  const trs = editor.querySelectorAll('tr');
+  const rows = trs.length;
+  const cols = trs[0] ? trs[0].querySelectorAll('td').length : 0;
+  if (rows === 0 || cols === 0) return;
+
+  const data = [];
+  trs.forEach(tr => {
+    const row = [];
+    tr.querySelectorAll('input').forEach(input => {
+      row.push(input.value.trim());
+    });
+    data.push(row);
+  });
+
+  const header = '|' + data[0].map(v => v || '  ').join('|') + '|';
+  const separator = '|' + data[0].map(() => '--').join('|') + '|';
+  const dataRows = data.slice(1).map(row => '|' + row.map(v => v || '  ').join('|') + '|').join('\n');
   const table = header + '\n' + separator + '\n' + dataRows + '\n';
 
-  const start = textarea.selectionStart;
-  const end = textarea.selectionEnd;
-  const before = textarea.value.substring(0, start);
-  const after = textarea.value.substring(end);
-
+  const textarea = tableInsertTarget;
+  const pos = tableInsertPos;
+  const before = textarea.value.substring(0, pos.start);
+  const after = textarea.value.substring(pos.end);
   const prefix = (before && !before.endsWith('\n')) ? '\n' : '';
   textarea.value = before + prefix + table + after;
   textarea.focus();
-
-  const tableStart = (before + prefix).length;
-  const firstDataRow = tableStart + header.length + 1 + separator.length + 1 + 2;
-  textarea.setSelectionRange(firstDataRow, firstDataRow);
+  textarea.dispatchEvent(new Event('input', { bubbles: true }));
   autoResize(textarea);
+
+  document.getElementById('table-overlay').style.display = 'none';
+  tableInsertTarget = null;
+  tableInsertPos = null;
 }
 
 async function saveEdit(index) {
@@ -2476,6 +2515,40 @@ function setupEvents() {
   authInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') document.getElementById('auth-confirm').click();
     if (e.key === 'Escape') authOverlay.style.display = 'none';
+  });
+
+  // 表格插入弹窗
+  const tableOverlay = document.getElementById('table-overlay');
+  const tableRowsEl = document.getElementById('table-rows');
+  const tableColsEl = document.getElementById('table-cols');
+
+  document.getElementById('table-confirm').addEventListener('click', insertTableConfirm);
+  document.getElementById('table-cancel').addEventListener('click', () => {
+    tableOverlay.style.display = 'none';
+    tableInsertTarget = null;
+    tableInsertPos = null;
+  });
+  tableOverlay.addEventListener('click', (e) => {
+    if (e.target === tableOverlay) {
+      tableOverlay.style.display = 'none';
+      tableInsertTarget = null;
+      tableInsertPos = null;
+    }
+  });
+
+  tableOverlay.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-action]');
+    if (!btn) return;
+    const action = btn.dataset.action;
+    let rows = parseInt(tableRowsEl.textContent);
+    let cols = parseInt(tableColsEl.textContent);
+    if (action === 'table-rows-minus') rows = Math.max(1, rows - 1);
+    else if (action === 'table-rows-plus') rows = Math.min(20, rows + 1);
+    else if (action === 'table-cols-minus') cols = Math.max(1, cols - 1);
+    else if (action === 'table-cols-plus') cols = Math.min(10, cols + 1);
+    tableRowsEl.textContent = rows;
+    tableColsEl.textContent = cols;
+    showTableEditor(rows, cols);
   });
 
   document.getElementById('btn-export').addEventListener('click', exportData);
