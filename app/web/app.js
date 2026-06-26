@@ -1529,6 +1529,9 @@ async function deleteNotebook(name) {
     notes = [];
     notesView.style.display = 'none';
     placeholder.style.display = 'flex';
+  } else if (currentNotebook) {
+    notes = await storage.getNotes(currentNotebook);
+    renderNotes();
   }
   await loadFiles();
 }
