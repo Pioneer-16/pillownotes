@@ -1,0 +1,333 @@
+const Database = require('better-sqlite3');
+const path = require('path');
+const fs = require('fs');
+
+const DATA_DIR = path.resolve(__dirname, '../../data');
+const DB_PATH = path.join(DATA_DIR, 'notes.db');
+
+// 确保数据目录存在
+if (!fs.existsSync(DATA_DIR)) {
+  fs.mkdirSync(DATA_DIR, { recursive: true });
+}
+
+const db = new Database(DB_PATH);
+
+// 启用 WAL 模式和外键约束
+db.pragma('journal_mode = WAL');
+db.pragma('foreign_keys = ON');
+
+// 初始化表结构
+db.exec(`
+  CREATE TABLE IF NOT EXISTS notes (
+    id TEXT PRIMARY KEY,
+    data TEXT NOT NULL,
+    content TEXT,
+    created_at TEXT,
+    updated_at TEXT
+  );
+
+  CREATE TABLE IF NOT EXISTS note_notebooks (
+    note_id TEXT NOT NULL,
+    notebook TEXT NOT NULL,
+    PRIMARY KEY (note_id, notebook),
+    FOREIGN KEY (note_id) REFERENCES notes(id) ON DELETE CASCADE
+  );
+
+  CREATE TABLE IF NOT EXISTS notebooks (
+    name TEXT PRIMARY KEY
+  );
+`);
+
+// 全文搜索虚拟表（如果不存在）
+try {
+  db.exec(`
+    CREATE VIRTUAL TABLE IF NOT EXISTS notes_fts USING fts5(
+      content,
+      content='notes',
+      content_rowid='rowid'
+    );
+  `);
+} catch (e) {
+  // FTS5 可能不可用，忽略错误
+}
+
+// 从笔记数据中提取文本内容
+function extractContent(noteData) {
+  const parts = [];
+  for (const key of Object.keys(noteData)) {
+    if (key === 'id' || key === 'notebooks' || key === 'createdAt' || key === 'updatedAt') continue;
+    const val = noteData[key];
+    if (typeof val === 'string' && val.trim()) {
+      parts.push(val.trim());
+    }
+  }
+  return parts.join('\n');
+}
+
+// 数据迁移：从 JSON 迁移到 SQLite
+function migrateFromJson() {
+  const jsonPath = path.join(DATA_DIR, 'notes.json');
+  if (!fs.existsSync(jsonPath)) return false;
+
+  try {
+    const data = JSON.parse(fs.readFileSync(jsonPath, 'utf-8'));
+    if (!Array.isArray(data) || data.length === 0) return false;
+
+    const insertNote = db.prepare(`
+      INSERT OR REPLACE INTO notes (id, data, content, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?)
+    `);
+    const insertNoteNotebook = db.prepare(`
+      INSERT OR IGNORE INTO note_notebooks (note_id, notebook)
+      VALUES (?, ?)
+    `);
+    const insertNotebook = db.prepare(`
+      INSERT OR IGNORE INTO notebooks (name) VALUES (?)
+    `);
+    const insertFts = db.prepare(`
+      INSERT INTO notes_fts (rowid, content) VALUES (last_insert_rowid(), ?)
+    `);
+
+    const migrate = db.transaction(() => {
+      for (const note of data) {
+        if (!note.id) continue;
+        const content = extractContent(note);
+        const createdAt = note.createdAt || new Date().toISOString();
+        const updatedAt = note.updatedAt || new Date().toISOString();
+
+        insertNote.run(note.id, JSON.stringify(note), content, createdAt, updatedAt);
+
+        // 插入 FTS
+        try {
+          if (content) insertFts.run(content);
+        } catch (e) {}
+
+        // 插入笔记本关联
+        if (note.notebooks && Array.isArray(note.notebooks)) {
+          for (const nb of note.notebooks) {
+            if (nb) {
+              insertNoteNotebook.run(note.id, nb);
+              insertNotebook.run(nb);
+            }
+          }
+        }
+      }
+    });
+
+    migrate();
+
+    // 备份原文件
+    const backupPath = jsonPath + '.backup';
+    if (!fs.existsSync(backupPath)) {
+      fs.copyFileSync(jsonPath, backupPath);
+    }
+
+    console.log(`已迁移 ${data.length} 条笔记到 SQLite`);
+    return true;
+  } catch (e) {
+    console.error('迁移失败:', e.message);
+    return false;
+  }
+}
+
+// 检查是否需要迁移
+function checkAndMigrate() {
+  const noteCount = db.prepare('SELECT COUNT(*) as count FROM notes').get().count;
+  if (noteCount === 0) {
+    migrateFromJson();
+  }
+}
+
+// 初始化时检查迁移
+checkAndMigrate();
+
+// ===== 数据库操作 =====
+
+// 笔记操作
+const noteOps = {
+  getAll() {
+    return db.prepare(`
+      SELECT n.id, n.data, n.created_at, n.updated_at,
+             GROUP_CONCAT(nn.notebook) as notebooks
+      FROM notes n
+      LEFT JOIN note_notebooks nn ON n.id = nn.note_id
+      GROUP BY n.id
+    `).all().map(row => {
+      const note = JSON.parse(row.data);
+      note.notebooks = row.notebooks ? row.notebooks.split(',') : [];
+      return note;
+    });
+  },
+
+  getByNotebook(notebook) {
+    return db.prepare(`
+      SELECT n.id, n.data, n.created_at, n.updated_at
+      FROM notes n
+      JOIN note_notebooks nn ON n.id = nn.note_id
+      WHERE nn.notebook = ?
+      ORDER BY n.updated_at DESC
+    `).all(notebook).map(row => {
+      const note = JSON.parse(row.data);
+      return note;
+    });
+  },
+
+  getById(id) {
+    const row = db.prepare(`
+      SELECT n.data FROM notes n WHERE n.id = ?
+    `).get(id);
+    return row ? JSON.parse(row.data) : null;
+  },
+
+  create(note) {
+    const content = extractContent(note);
+    const now = new Date().toISOString();
+    note.createdAt = note.createdAt || now;
+    note.updatedAt = now;
+
+    db.prepare(`
+      INSERT INTO notes (id, data, content, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?)
+    `).run(note.id, JSON.stringify(note), content, note.createdAt, note.updatedAt);
+
+    // 更新笔记本关联
+    this.updateNotebooks(note.id, note.notebooks || []);
+
+    // 更新 FTS
+    try {
+      if (content) {
+        const rowid = db.prepare('SELECT rowid FROM notes WHERE id = ?').get(note.id)?.rowid;
+        if (rowid) {
+          db.prepare('INSERT INTO notes_fts (rowid, content) VALUES (?, ?)').run(rowid, content);
+        }
+      }
+    } catch (e) {}
+
+    return note;
+  },
+
+  update(note) {
+    const content = extractContent(note);
+    note.updatedAt = new Date().toISOString();
+
+    db.prepare(`
+      UPDATE notes SET data = ?, content = ?, updated_at = ? WHERE id = ?
+    `).run(JSON.stringify(note), content, note.updatedAt, note.id);
+
+    // 更新笔记本关联
+    this.updateNotebooks(note.id, note.notebooks || []);
+
+    // 更新 FTS
+    try {
+      const rowid = db.prepare('SELECT rowid FROM notes WHERE id = ?').get(note.id)?.rowid;
+      if (rowid) {
+        db.prepare('DELETE FROM notes_fts WHERE rowid = ?').run(rowid);
+        if (content) {
+          db.prepare('INSERT INTO notes_fts (rowid, content) VALUES (?, ?)').run(rowid, content);
+        }
+      }
+    } catch (e) {}
+
+    return note;
+  },
+
+  delete(id) {
+    // FTS 会通过触发器自动删除
+    db.prepare('DELETE FROM notes WHERE id = ?').run(id);
+  },
+
+  updateNotebooks(noteId, notebooks) {
+    db.prepare('DELETE FROM note_notebooks WHERE note_id = ?').run(noteId);
+    const insert = db.prepare('INSERT OR IGNORE INTO note_notebooks (note_id, notebook) VALUES (?, ?)');
+    for (const nb of notebooks) {
+      if (nb) insert.run(noteId, nb);
+    }
+  },
+
+  search(query) {
+    try {
+      const ftsResults = db.prepare(`
+        SELECT n.id, n.data, rank
+        FROM notes_fts fts
+        JOIN notes n ON n.rowid = fts.rowid
+        WHERE notes_fts MATCH ?
+        ORDER BY rank
+        LIMIT 50
+      `).all(query);
+
+      return ftsResults.map(row => {
+        const note = JSON.parse(row.data);
+        // 获取笔记本
+        const notebooks = db.prepare(`
+          SELECT notebook FROM note_notebooks WHERE note_id = ?
+        `).all(row.id).map(r => r.notebook);
+        note.notebooks = notebooks;
+        return note;
+      });
+    } catch (e) {
+      // FTS 失败时回退到 LIKE 搜索
+      return db.prepare(`
+        SELECT n.id, n.data
+        FROM notes n
+        WHERE n.content LIKE ?
+        LIMIT 50
+      `).all(`%${query}%`).map(row => {
+        const note = JSON.parse(row.data);
+        const notebooks = db.prepare(`
+          SELECT notebook FROM note_notebooks WHERE note_id = ?
+        `).all(row.id).map(r => r.notebook);
+        note.notebooks = notebooks;
+        return note;
+      });
+    }
+  },
+
+  countByNotebook(notebook) {
+    const row = db.prepare(`
+      SELECT COUNT(*) as count FROM note_notebooks WHERE notebook = ?
+    `).get(notebook);
+    return row ? row.count : 0;
+  }
+};
+
+// 笔记本操作
+const notebookOps = {
+  getAll() {
+    return db.prepare('SELECT name FROM notebooks ORDER BY rowid').all().map(r => r.name);
+  },
+
+  create(name) {
+    try {
+      db.prepare('INSERT INTO notebooks (name) VALUES (?)').run(name);
+      return { success: true };
+    } catch (e) {
+      if (e.message.includes('UNIQUE')) {
+        return { success: false, error: '已存在同名笔记本' };
+      }
+      throw e;
+    }
+  },
+
+  delete(name) {
+    db.prepare('DELETE FROM notebooks WHERE name = ?').run(name);
+    // 删除只有此笔记本的笔记
+    db.prepare(`
+      DELETE FROM notes WHERE id IN (
+        SELECT nn.note_id FROM note_notebooks nn
+        WHERE nn.notebook = ?
+        AND nn.note_id NOT IN (
+          SELECT nn2.note_id FROM note_notebooks nn2 WHERE nn2.notebook != ?
+        )
+      )
+    `).run(name, name);
+    // 删除关联
+    db.prepare('DELETE FROM note_notebooks WHERE notebook = ?').run(name);
+  },
+
+  rename(oldName, newName) {
+    db.prepare('UPDATE notebooks SET name = ? WHERE name = ?').run(newName, oldName);
+    db.prepare('UPDATE note_notebooks SET notebook = ? WHERE notebook = ?').run(newName, oldName);
+  }
+};
+
+module.exports = { db, noteOps, notebookOps };

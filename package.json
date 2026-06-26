@@ -6,9 +6,14 @@
   "scripts": {
     "start": "node app/web/server.js"
   },
-  "keywords": ["notes", "reading", "book"],
+  "keywords": [
+    "notes",
+    "reading",
+    "book"
+  ],
   "license": "MIT",
   "dependencies": {
+    "better-sqlite3": "^12.11.1",
     "dotenv": "^16.4.7"
   }
 }

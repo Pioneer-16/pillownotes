@@ -7,6 +7,7 @@ require('dotenv').config({ path: require('path').resolve(__dirname, '../../.env'
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const { noteOps, notebookOps } = require('./db');
 
 const PORT = process.env.PORT || 3000;
 const DATA_DIR = path.resolve(__dirname, '../../data');
@@ -63,81 +64,6 @@ function saveGlobals(data) {
   fs.writeFileSync(GLOBALS_FILE, JSON.stringify(data, null, 2), 'utf-8');
 }
 
-// ===== 笔记数据 =====
-const NOTES_FILE = path.join(DATA_DIR, 'notes.json');
-
-function readAllNotes() {
-  if (!fs.existsSync(NOTES_FILE)) {
-    // 首次运行时从样例数据加载
-    const sampleFile = path.join(DATA_DIR, 'sample', 'notes.json');
-    if (fs.existsSync(sampleFile)) {
-      try {
-        const sample = JSON.parse(fs.readFileSync(sampleFile, 'utf-8'));
-        if (Array.isArray(sample)) {
-          saveAllNotes(sample);
-          return sample;
-        }
-      } catch (e) {}
-    }
-    return [];
-  }
-  try {
-    const data = JSON.parse(fs.readFileSync(NOTES_FILE, 'utf-8'));
-    if (!Array.isArray(data)) return [];
-    if (ensureNoteIds(data)) saveAllNotes(data);
-    return data;
-  } catch (e) { return []; }
-}
-
-function ensureNoteIds(notes) {
-  let changed = false;
-  for (const n of notes) {
-    if (!n.id) {
-      n.id = Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
-      changed = true;
-    }
-  }
-  return changed;
-}
-
-function saveAllNotes(notes) {
-  fs.writeFileSync(NOTES_FILE, JSON.stringify(notes, null, 2), 'utf-8');
-}
-
-// ===== 笔记本管理 =====
-function getNotebooks() {
-  const globals = getGlobals();
-  const allNotes = readAllNotes();
-  const names = globals.notebooks || [];
-  return names.map(name => {
-    const count = allNotes.filter(n => n.notebooks && n.notebooks.includes(name)).length;
-    return { name, count };
-  });
-}
-
-function createNotebook(name) {
-  const globals = getGlobals();
-  if (!globals.notebooks) globals.notebooks = [];
-  if (globals.notebooks.includes(name)) return { success: false, error: '已存在同名笔记本' };
-  globals.notebooks.push(name);
-  saveGlobals(globals);
-  return { success: true };
-}
-
-function deleteNotebook(name) {
-  const globals = getGlobals();
-  globals.notebooks = (globals.notebooks || []).filter(n => n !== name);
-  if (globals.notebookTemplates) delete globals.notebookTemplates[name];
-  saveGlobals(globals);
-  const notes = readAllNotes();
-  const filtered = notes.filter(n => {
-    if (!n.notebooks || !n.notebooks.includes(name)) return true;
-    n.notebooks = n.notebooks.filter(nb => nb !== name);
-    return n.notebooks.length > 0;
-  });
-  saveAllNotes(filtered);
-}
-
 // ===== 工具函数 =====
 function parseBody(req) {
   return new Promise((resolve, reject) => {
@@ -171,20 +97,25 @@ const server = http.createServer(async (req, res) => {
 
   // --- 笔记本 ---
   if (pathname === '/api/notebooks' && req.method === 'GET') {
-    return sendJSON(res, getNotebooks());
+    const names = notebookOps.getAll();
+    const result = names.map(name => ({
+      name,
+      count: noteOps.countByNotebook(name)
+    }));
+    return sendJSON(res, result);
   }
 
   if (pathname === '/api/notebooks' && req.method === 'POST') {
     if (!checkAuth(req)) return sendError(res, '需要验证密码', 401);
     const { name } = await parseBody(req);
     if (!name) return sendError(res, '名称不能为空');
-    return sendJSON(res, createNotebook(name));
+    return sendJSON(res, notebookOps.create(name));
   }
 
   if (pathname.startsWith('/api/notebooks/') && req.method === 'DELETE') {
     if (!checkAuth(req)) return sendError(res, '需要验证密码', 401);
     const name = decodeURIComponent(pathname.slice('/api/notebooks/'.length));
-    deleteNotebook(name);
+    notebookOps.delete(name);
     return sendJSON(res, { success: true });
   }
 
@@ -196,28 +127,20 @@ const server = http.createServer(async (req, res) => {
 
   // --- 笔记 ---
   if (pathname === '/api/notes' && req.method === 'GET') {
-    let notes = readAllNotes();
     const notebook = url.searchParams.get('notebook');
+    let notes;
     if (notebook) {
-      notes = notes.filter(n => n.notebooks && n.notebooks.includes(notebook));
+      notes = noteOps.getByNotebook(notebook);
+    } else {
+      notes = noteOps.getAll();
     }
     return sendJSON(res, notes);
   }
 
   if (pathname === '/api/notes/search' && req.method === 'GET') {
-    const q = (url.searchParams.get('q') || '').trim().toLowerCase();
+    const q = (url.searchParams.get('q') || '').trim();
     if (!q) return sendJSON(res, []);
-    const all = readAllNotes();
-    const results = all.filter(n => {
-      const hay = [n.content, n.book, n.page, n.dynasty, n.quote, ...(n.notebooks || [])].filter(Boolean).join(' ').toLowerCase();
-      return hay.includes(q);
-    }).map(n => ({
-      ...n,
-      matchField: n.content && n.content.toLowerCase().includes(q) ? 'content'
-        : n.quote && n.quote.toLowerCase().includes(q) ? 'quote'
-        : n.book && n.book.toLowerCase().includes(q) ? 'book'
-        : 'other'
-    }));
+    const results = noteOps.search(q);
     return sendJSON(res, results);
   }
 
@@ -225,7 +148,17 @@ const server = http.createServer(async (req, res) => {
     if (!checkAuth(req)) return sendError(res, '需要验证密码', 401);
     const { notes } = await parseBody(req);
     if (!Array.isArray(notes)) return sendError(res, '无效数据');
-    saveAllNotes(notes);
+
+    // 批量保存笔记
+    for (const note of notes) {
+      if (!note.id) continue;
+      const existing = noteOps.getById(note.id);
+      if (existing) {
+        noteOps.update(note);
+      } else {
+        noteOps.create(note);
+      }
+    }
     return sendJSON(res, { success: true });
   }
 
@@ -248,6 +181,14 @@ const server = http.createServer(async (req, res) => {
       }
     }
     saveGlobals(globals);
+
+    // 同步笔记本到数据库
+    if (data.notebooks && Array.isArray(data.notebooks)) {
+      for (const nb of data.notebooks) {
+        if (nb) notebookOps.create(nb);
+      }
+    }
+
     return sendJSON(res, { success: true });
   }
 
