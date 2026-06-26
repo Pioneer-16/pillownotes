@@ -160,6 +160,18 @@ function generateId() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 }
 
+function showToast(message, type = 'error') {
+  const container = document.getElementById('toast-container');
+  const toast = document.createElement('div');
+  toast.className = `toast toast-${type}`;
+  toast.textContent = message;
+  container.appendChild(toast);
+  setTimeout(() => {
+    toast.classList.add('toast-out');
+    toast.addEventListener('animationend', () => toast.remove());
+  }, 2500);
+}
+
 // ===== DOM =====
 const fileList = document.getElementById('file-list');
 const notesView = document.getElementById('notes-view');
@@ -1944,17 +1956,17 @@ function toggleCompEdit(compId) {
 }
 
 async function addNewComponent(type) {
-  const id = 'field_' + generateId();
   const typeLabels = { textarea: '文本域', input: '输入框', dropdown: '下拉选择', number: '数字', date: '日期', url: '链接', rating: '评分' };
+  const defaultLabel = typeLabels[type] || type;
   const existingLabels = globals.fieldComponents.filter(c => c.type === type).map(c => c.label);
-  let label = typeLabels[type] || type;
-  let counter = 1;
-  while (existingLabels.includes(label)) {
-    counter++;
-    label = (typeLabels[type] || type) + counter;
+
+  if (existingLabels.includes(defaultLabel)) {
+    showToast(`已存在同名组件「${defaultLabel}」`);
+    return;
   }
 
-  const comp = { id, type, label, placeholder: '', config: {} };
+  const id = 'field_' + generateId();
+  const comp = { id, type, label: defaultLabel, placeholder: '', config: {} };
   if (type === 'textarea') comp.config.hasTable = true;
   if (type === 'number') comp.config.format = 'P000';
   if (type === 'date') comp.config.format = 'YYYY-MM-DD';
