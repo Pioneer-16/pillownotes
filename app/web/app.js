@@ -204,6 +204,16 @@ async function init() {
         clearAuth();
       }
     } catch (e) { clearAuth(); }
+  } else {
+    try {
+      const res = await fetch(`${API_BASE}/api/auth/check`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Auth-Token': '' }
+      });
+      if (res.ok) {
+        document.body.classList.add('auth-unlocked');
+      }
+    } catch (e) {}
   }
   globals = await storage.getGlobals();
   ensureTemplateDefaults();
