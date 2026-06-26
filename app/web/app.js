@@ -1303,6 +1303,15 @@ async function saveEdit(index) {
     if (!globals[globalKey].includes(val)) globals[globalKey].push(val);
     globals[`last_${fieldId}`] = val;
   }
+
+  // 更新全局笔记本列表
+  for (const nb of notebooks) {
+    if (!globals.notebooks) globals.notebooks = [];
+    if (!globals.notebooks.includes(nb)) {
+      globals.notebooks.push(nb);
+    }
+  }
+
   await storage.saveGlobals(globals);
 
   notes = await storage.getNotes(currentNotebook);
@@ -1312,6 +1321,7 @@ async function saveEdit(index) {
   } else {
     renderNotes();
   }
+  await loadFiles();
 
   setTimeout(() => {
     const card = document.querySelector(`.note-card[data-index="${index}"]`);
