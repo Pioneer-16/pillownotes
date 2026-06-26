@@ -1048,6 +1048,12 @@ body:not(.auth-unlocked) .file-item-delete {
   border-radius: 10px;
   background: var(--color-paper-deep);
   color: var(--color-ink-faint);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.note-tag:hover {
+  background: var(--color-bamboo-mist);
+  color: var(--color-bamboo);
 }
 
 /* 编辑表单 tag 管理器 */

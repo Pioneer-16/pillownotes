@@ -369,7 +369,7 @@ function renderNotes() {
       return `<div class="note-card note-card-empty" data-index="${i}" style="animation-delay: 0s"></div>`;
     }
     const tags = (note.notebooks || []).filter(t => t !== currentNotebook);
-    const tagsHtml = tags.length ? `<div class="note-tags">${tags.map(t => `<span class="note-tag">${escapeHtml(t)}</span>`).join('')}</div>` : '';
+    const tagsHtml = tags.length ? `<div class="note-tags">${tags.map(t => `<span class="note-tag" data-notebook="${escapeHtml(t)}">${escapeHtml(t)}</span>`).join('')}</div>` : '';
     const { html: fieldsHtml, quoteFields, urlFields } = renderCardFields(note, template, false);
     const hasQuote = quoteFields.length > 0;
     const hasUrl = urlFields.length > 0;
@@ -509,7 +509,7 @@ async function doSearch(q) {
   const defaultTemplate = getDefaultTemplate();
 
   notesList.innerHTML = results.map((note, i) => {
-    const notebooks = (note.notebooks || []).map(t => `<span class="note-tag">${escapeHtml(t)}</span>`).join('');
+    const notebooks = (note.notebooks || []).map(t => `<span class="note-tag" data-notebook="${escapeHtml(t)}">${escapeHtml(t)}</span>`).join('');
     const matchBadge = note.matchField === 'quote' ? '<span class="match-badge">引用</span>' : '';
     const notebook = (note.notebooks || [])[0];
     const tplId = globals.notebookTemplates?.[notebook];
@@ -2463,6 +2463,14 @@ function setupEvents() {
   document.getElementById('btn-add-note').addEventListener('click', addNote);
 
   notesList.addEventListener('click', async (e) => {
+    // 点击笔记标签跳转到对应笔记本
+    const noteTag = e.target.closest('.note-tag');
+    if (noteTag && noteTag.dataset.notebook) {
+      e.stopPropagation();
+      await openNotebook(noteTag.dataset.notebook);
+      return;
+    }
+
     const btn = e.target.closest('[data-action]');
     if (!btn) return;
     const action = btn.dataset.action;
