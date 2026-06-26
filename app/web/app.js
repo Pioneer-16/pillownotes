@@ -854,6 +854,9 @@ function editNote(index) {
               <button type="button" class="edit-tool-btn" data-action="insert-table" data-target="${fieldId}" data-index="${index}" title="插入表格">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/></svg>
               </button>
+              <button type="button" class="edit-tool-btn" data-action="insert-code" data-target="${fieldId}" data-index="${index}" title="插入代码块">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+              </button>
             </div>` : ''}
             <textarea class="edit-field ${cssClass}" data-field-id="${fieldId}" placeholder="${escapeHtml(comp.placeholder || '')}" rows="${rows}">${escapeHtml(note[fieldId] || '')}</textarea>
           </div>`;
@@ -1261,6 +1264,27 @@ function insertTableConfirm() {
   document.getElementById('table-overlay').style.display = 'none';
   tableInsertTarget = null;
   tableInsertPos = null;
+}
+
+function insertCodeBlock(btn) {
+  const target = btn.dataset.target;
+  const card = btn.closest('.note-card');
+  const textarea = card.querySelector(`textarea[data-field-id="${target}"]`);
+
+  const start = textarea.selectionStart;
+  const end = textarea.selectionEnd;
+  const before = textarea.value.substring(0, start);
+  const after = textarea.value.substring(end);
+
+  const codeBlock = '```\n\n```';
+  const prefix = (before && !before.endsWith('\n')) ? '\n' : '';
+  textarea.value = before + prefix + codeBlock + after;
+
+  const cursorPos = (before + prefix).length + 4;
+  textarea.setSelectionRange(cursorPos, cursorPos);
+  textarea.focus();
+  textarea.dispatchEvent(new Event('input', { bubbles: true }));
+  autoResize(textarea);
 }
 
 async function saveEdit(index) {
@@ -2491,6 +2515,7 @@ function setupEvents() {
     if (action === 'save-edit') saveEdit(index);
     if (action === 'cancel-edit') cancelEdit(index);
     if (action === 'insert-table') insertTable(btn);
+    if (action === 'insert-code') insertCodeBlock(btn);
     if (action === 'toggle-quote') {
       const card = btn.closest('.note-card');
       const quoteId = btn.dataset.quoteId;
@@ -2670,10 +2695,37 @@ function renderContent(str) {
   let html = '';
   let inTable = false;
   let tableLines = [];
+  let inCodeBlock = false;
+  let codeLines = [];
+  let codeLang = '';
 
   for (let i = 0; i < lines.length; i++) {
     const rawLine = lines[i];
     const trimmed = rawLine.trim();
+
+    // 代码块处理
+    if (trimmed.startsWith('```')) {
+      if (inCodeBlock) {
+        // 结束代码块
+        html += `<pre><code class="language-${escapeHtml(codeLang)}">${escapeHtml(codeLines.join('\n'))}</code></pre>`;
+        inCodeBlock = false;
+        codeLines = [];
+        codeLang = '';
+      } else {
+        // 开始代码块
+        if (inTable) { html += renderTable(tableLines); inTable = false; tableLines = []; }
+        inCodeBlock = true;
+        codeLang = trimmed.slice(3).trim();
+      }
+      continue;
+    }
+
+    // 在代码块内，直接收集行
+    if (inCodeBlock) {
+      codeLines.push(rawLine);
+      continue;
+    }
+
     if (trimmed === '') {
       if (inTable) { html += renderTable(tableLines); inTable = false; tableLines = []; }
       html += '<div class="para-gap"></div>';
@@ -2704,6 +2756,7 @@ function renderContent(str) {
     }
   }
   if (inTable) html += renderTable(tableLines);
+  if (inCodeBlock) html += `<pre><code class="language-${escapeHtml(codeLang)}">${escapeHtml(codeLines.join('\n'))}</code></pre>`;
   return html;
 }
 
