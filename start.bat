@@ -10,9 +10,14 @@ if not exist node_modules (
         exit /b 1
     )
 )
+set PORT=3000
+if exist .env (
+    for /f "usebackq tokens=1,* delims==" %%a in (.env) do (
+        if /i "%%a"=="PORT" set PORT=%%b
+    )
+)
 cd /d "%~dp0app\web"
 echo 正在启动枕书阁...
-start /b node server.js
-timeout /t 2 /nobreak >nul
-start http://localhost:3000
+start http://localhost:%PORT%
+node server.js
 pause
