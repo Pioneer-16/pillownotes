@@ -134,59 +134,7 @@ function migrateFromJson() {
 function checkAndMigrate() {
   const noteCount = db.prepare('SELECT COUNT(*) as count FROM notes').get().count;
   if (noteCount === 0) {
-    const migrated = migrateFromJson();
-    // 如果没有迁移成功，尝试加载样例数据
-    if (!migrated) {
-      loadSampleData();
-    }
-  }
-}
-
-// 加载样例数据
-function loadSampleData() {
-  const sampleFile = path.join(DATA_DIR, 'sample', 'notes.json');
-  if (!fs.existsSync(sampleFile)) return;
-
-  try {
-    const data = JSON.parse(fs.readFileSync(sampleFile, 'utf-8'));
-    if (!Array.isArray(data) || data.length === 0) return;
-
-    const insertNote = db.prepare(`
-      INSERT OR REPLACE INTO notes (id, data, content, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?)
-    `);
-    const insertNoteNotebook = db.prepare(`
-      INSERT OR IGNORE INTO note_notebooks (note_id, notebook)
-      VALUES (?, ?)
-    `);
-    const insertNotebook = db.prepare(`
-      INSERT OR IGNORE INTO notebooks (name) VALUES (?)
-    `);
-
-    const migrate = db.transaction(() => {
-      for (const note of data) {
-        if (!note.id) continue;
-        const content = extractContent(note);
-        const createdAt = note.createdAt || new Date().toISOString();
-        const updatedAt = note.updatedAt || new Date().toISOString();
-
-        insertNote.run(note.id, JSON.stringify(note), content, createdAt, updatedAt);
-
-        if (note.notebooks && Array.isArray(note.notebooks)) {
-          for (const nb of note.notebooks) {
-            if (nb) {
-              insertNoteNotebook.run(note.id, nb);
-              insertNotebook.run(nb);
-            }
-          }
-        }
-      }
-    });
-
-    migrate();
-    console.log(`已加载 ${data.length} 条样例笔记`);
-  } catch (e) {
-    console.error('加载样例数据失败:', e.message);
+    migrateFromJson();
   }
 }
 
