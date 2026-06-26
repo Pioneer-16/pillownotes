@@ -1946,6 +1946,14 @@ function toggleCompEdit(compId) {
   });
 
   editPanel.querySelector('[data-action="save-comp"]').addEventListener('click', () => {
+    const newLabel = editPanel.querySelector('[data-field="label"]').value.trim();
+    if (newLabel) {
+      const duplicate = globals.fieldComponents.find(c => c.type === comp.type && c.id !== comp.id && c.label === newLabel);
+      if (duplicate) {
+        showToast(`已存在同名组件「${newLabel}」`);
+        return;
+      }
+    }
     saveComp();
     editPanel.classList.add('slide-out');
     editPanel.addEventListener('animationend', (e) => {
@@ -1956,17 +1964,17 @@ function toggleCompEdit(compId) {
 }
 
 async function addNewComponent(type) {
+  const id = 'field_' + generateId();
   const typeLabels = { textarea: '文本域', input: '输入框', dropdown: '下拉选择', number: '数字', date: '日期', url: '链接', rating: '评分' };
-  const defaultLabel = typeLabels[type] || type;
   const existingLabels = globals.fieldComponents.filter(c => c.type === type).map(c => c.label);
-
-  if (existingLabels.includes(defaultLabel)) {
-    showToast(`已存在同名组件「${defaultLabel}」`);
-    return;
+  let label = typeLabels[type] || type;
+  let counter = 1;
+  while (existingLabels.includes(label)) {
+    counter++;
+    label = (typeLabels[type] || type) + counter;
   }
 
-  const id = 'field_' + generateId();
-  const comp = { id, type, label: defaultLabel, placeholder: '', config: {} };
+  const comp = { id, type, label, placeholder: '', config: {} };
   if (type === 'textarea') comp.config.hasTable = true;
   if (type === 'number') comp.config.format = 'P000';
   if (type === 'date') comp.config.format = 'YYYY-MM-DD';
