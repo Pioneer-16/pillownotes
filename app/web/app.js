@@ -226,29 +226,44 @@ async function init() {
 // ===== 主题 =====
 function loadTheme() {
   const saved = localStorage.getItem('zhenshuge_theme');
-  if (saved) {
-    document.documentElement.setAttribute('data-theme', saved);
-  } else {
+  if (saved === 'auto' || !saved) {
+    // 跟随系统
     const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
     document.documentElement.setAttribute('data-theme', prefersDark ? 'dark' : 'light');
+    document.documentElement.setAttribute('data-theme-mode', 'auto');
+  } else {
+    document.documentElement.setAttribute('data-theme', saved);
+    document.documentElement.setAttribute('data-theme-mode', saved);
   }
+
+  // 监听系统主题变化
   window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
-    if (!localStorage.getItem('zhenshuge_theme')) {
+    const mode = document.documentElement.getAttribute('data-theme-mode');
+    if (mode === 'auto') {
       document.documentElement.setAttribute('data-theme', e.matches ? 'dark' : 'light');
     }
   });
 }
 
 function toggleTheme() {
-  const current = document.documentElement.getAttribute('data-theme');
-  const next = current === 'dark' ? 'light' : 'dark';
-  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-  const systemTheme = prefersDark ? 'dark' : 'light';
-  document.documentElement.setAttribute('data-theme', next);
-  if (next === systemTheme) {
-    localStorage.removeItem('zhenshuge_theme');
+  const currentMode = document.documentElement.getAttribute('data-theme-mode') || 'auto';
+  let nextMode;
+  if (currentMode === 'auto') {
+    nextMode = 'light';
+  } else if (currentMode === 'light') {
+    nextMode = 'dark';
   } else {
-    localStorage.setItem('zhenshuge_theme', next);
+    nextMode = 'auto';
+  }
+
+  document.documentElement.setAttribute('data-theme-mode', nextMode);
+  localStorage.setItem('zhenshuge_theme', nextMode);
+
+  if (nextMode === 'auto') {
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    document.documentElement.setAttribute('data-theme', prefersDark ? 'dark' : 'light');
+  } else {
+    document.documentElement.setAttribute('data-theme', nextMode);
   }
 }
 
