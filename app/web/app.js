@@ -2476,7 +2476,7 @@ function setupEvents() {
       searchMode = false;
       navigatingToNote = false;
       await openNotebook(notebook);
-      if (noteId) scrollToNote(noteId);
+      if (noteId) setTimeout(() => scrollToNote(noteId), 100);
       return;
     }
 
@@ -2509,7 +2509,7 @@ function setupEvents() {
         searchMode = false;
         navigatingToNote = false;
         await openNotebook(notebook);
-        if (noteId) scrollToNote(noteId);
+        if (noteId) setTimeout(() => scrollToNote(noteId), 100);
       }
     }
   });
