@@ -168,41 +168,56 @@ const noteOps = {
   },
 
   search(query) {
-    try {
-      const ftsResults = db.prepare(`
-        SELECT n.id, n.data, rank
-        FROM notes_fts fts
-        JOIN notes n ON n.rowid = fts.rowid
-        WHERE notes_fts MATCH ?
-        ORDER BY rank
-        LIMIT 50
-      `).all(query);
+    const q = query.toLowerCase();
+    const allNotes = this.getAll();
 
-      return ftsResults.map(row => {
-        const note = JSON.parse(row.data);
-        // 获取笔记本
-        const notebooks = db.prepare(`
-          SELECT notebook FROM note_notebooks WHERE note_id = ?
-        `).all(row.id).map(r => r.notebook);
-        note.notebooks = notebooks;
-        return note;
+    return allNotes.map(note => {
+      const fields = ['content', 'quote', 'book', 'dynasty', 'page'];
+      let matchField = 'other';
+
+      for (const field of fields) {
+        const val = note[field];
+        if (val && String(val).toLowerCase().includes(q)) {
+          matchField = field;
+          break;
+        }
+      }
+
+      // 检查所有字段
+      const allFields = Object.keys(note).filter(k =>
+        k !== 'id' && k !== 'notebooks' && k !== 'createdAt' && k !== 'updatedAt'
+      );
+      const hasMatch = allFields.some(k => {
+        const val = note[k];
+        return val && String(val).toLowerCase().includes(q);
       });
-    } catch (e) {
-      // FTS 失败时回退到 LIKE 搜索
-      return db.prepare(`
-        SELECT n.id, n.data
-        FROM notes n
-        WHERE n.content LIKE ?
-        LIMIT 50
-      `).all(`%${query}%`).map(row => {
-        const note = JSON.parse(row.data);
-        const notebooks = db.prepare(`
-          SELECT notebook FROM note_notebooks WHERE note_id = ?
-        `).all(row.id).map(r => r.notebook);
-        note.notebooks = notebooks;
+
+      if (hasMatch) {
+        note.matchField = matchField;
         return note;
+      }
+      return null;
+    }).filter(Boolean).slice(0, 50);
+  },
+
+  filter(filters) {
+    let notes = this.getAll();
+
+    if (filters.notebook) {
+      notes = notes.filter(n => n.notebooks && n.notebooks.includes(filters.notebook));
+    }
+
+    for (const [fieldId, value] of Object.entries(filters)) {
+      if (fieldId === 'notebook' || !value) continue;
+      const q = value.toLowerCase();
+      notes = notes.filter(note => {
+        const val = note[fieldId];
+        if (!val) return false;
+        return String(val).toLowerCase().includes(q);
       });
     }
+
+    return notes.slice(0, 100);
   },
 
   countByNotebook(notebook) {

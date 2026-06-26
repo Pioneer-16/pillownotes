@@ -144,6 +144,15 @@ const server = http.createServer(async (req, res) => {
     return sendJSON(res, results);
   }
 
+  if (pathname === '/api/notes/filter' && req.method === 'GET') {
+    const filters = {};
+    for (const [key, value] of url.searchParams) {
+      if (value) filters[key] = value;
+    }
+    const results = noteOps.filter(filters);
+    return sendJSON(res, results);
+  }
+
   if (pathname === '/api/notes' && req.method === 'POST') {
     if (!checkAuth(req)) return sendError(res, '需要验证密码', 401);
     const { notes } = await parseBody(req);

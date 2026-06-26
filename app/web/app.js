@@ -1745,6 +1745,66 @@ function setupSettingsEvents() {
   btnSaveTemplate.addEventListener('click', saveCurrentTemplate);
   btnDeleteTemplate.addEventListener('click', deleteCurrentTemplate);
 
+  // AI 聊天
+  const aiOverlay = document.getElementById('ai-chat-overlay');
+  const aiClose = document.getElementById('ai-chat-close');
+  const btnAiChat = document.getElementById('btn-ai-chat');
+  const aiInput = document.getElementById('ai-chat-input');
+  const aiSend = document.getElementById('ai-chat-send');
+  const aiMessages = document.getElementById('ai-chat-messages');
+
+  btnAiChat.addEventListener('click', () => {
+    aiOverlay.style.display = 'flex';
+    setTimeout(() => aiInput.focus(), 100);
+  });
+
+  aiClose.addEventListener('click', () => {
+    aiOverlay.style.display = 'none';
+  });
+
+  aiOverlay.addEventListener('click', (e) => {
+    if (e.target === aiOverlay) aiOverlay.style.display = 'none';
+  });
+
+  function addAiMessage(text, type) {
+    const div = document.createElement('div');
+    div.className = `ai-message ai-message-${type}`;
+    div.innerHTML = text;
+    aiMessages.appendChild(div);
+    aiMessages.scrollTop = aiMessages.scrollHeight;
+  }
+
+  async function sendAiMessage() {
+    const text = aiInput.value.trim();
+    if (!text) return;
+
+    addAiMessage(escapeHtml(text), 'user');
+    aiInput.value = '';
+
+    // 搜索相关笔记
+    const searchResults = await storage.searchNotes(text);
+    const context = searchResults.slice(0, 5).map(n => {
+      const content = n.content || n.quote || n.book || '';
+      return `[${(n.notebooks || []).join(', ')}] ${content.substring(0, 200)}`;
+    }).join('\n\n');
+
+    // 这里可以调用 AI API
+    // 目前先显示搜索结果
+    if (context) {
+      addAiMessage(`<p>根据你的问题，我找到了以下相关笔记：</p><pre>${escapeHtml(context)}</pre><p><em>（AI 功能需要配置 API 后才能使用）</em></p>`, 'ai');
+    } else {
+      addAiMessage('<p>没有找到相关笔记。请尝试其他问题。</p>', 'ai');
+    }
+  }
+
+  aiSend.addEventListener('click', sendAiMessage);
+  aiInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendAiMessage();
+    }
+  });
+
   // 全局点击关闭下拉菜单
   document.addEventListener('click', () => {
     document.querySelectorAll('.dropdown-menu.open').forEach(m => m.classList.remove('open'));
