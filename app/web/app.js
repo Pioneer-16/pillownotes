@@ -2469,7 +2469,8 @@ function setupEvents() {
       e.stopPropagation();
       const notebook = noteTag.dataset.notebook;
       const card = noteTag.closest('.note-card');
-      const noteId = card?.dataset.id;
+      const noteIndex = card?.dataset.index;
+      const noteId = noteIndex !== undefined ? notes[parseInt(noteIndex)]?.id : null;
       navigatingToNote = true;
       searchInput.value = '';
       searchClear.style.display = 'none';
