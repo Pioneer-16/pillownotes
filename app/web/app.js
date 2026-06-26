@@ -1369,6 +1369,12 @@ function renderTemplateList() {
       renderSettings();
     });
   });
+
+  const currentTemplate = globals.cardTemplates?.find(t => t.id === editingTemplateId);
+  const currentNameEl = document.getElementById('current-template-name');
+  if (currentNameEl && currentTemplate) {
+    currentNameEl.textContent = currentTemplate.name;
+  }
 }
 
 // ===== 左侧：模板详情 =====
@@ -1539,6 +1545,7 @@ function renderTemplatePreview(template) {
     else if (comp.type === 'date') sampleNote[fieldId] = '2026-06-25';
     else if (comp.type === 'url') sampleNote[fieldId] = 'https://example.com';
     else if (comp.type === 'rating') sampleNote[fieldId] = '4';
+    else if (comp.label === '图片') sampleNote[fieldId] = '![示例图片](https://via.placeholder.com/200x150/f0f0f0/999999?text=图片)';
     else sampleNote[fieldId] = '示例';
   }
 
@@ -1898,7 +1905,15 @@ function toggleCompEdit(compId) {
 
   // 即时保存：监听所有输入变化
   const saveComp = async () => {
-    comp.label = editPanel.querySelector('[data-field="label"]').value.trim() || comp.label;
+    const newLabel = editPanel.querySelector('[data-field="label"]').value.trim() || comp.label;
+    const duplicate = globals.fieldComponents.find(
+      c => c.type === comp.type && c.id !== comp.id && c.label === newLabel
+    );
+    if (duplicate) {
+      showToast(`已存在同名组件「${newLabel}」`);
+      return;
+    }
+    comp.label = newLabel;
     comp.placeholder = editPanel.querySelector('[data-field="placeholder"]').value.trim();
     if (!comp.config) comp.config = {};
 
@@ -1929,6 +1944,8 @@ function toggleCompEdit(compId) {
     }
 
     await storage.saveGlobals(globals);
+    const tpl = globals.cardTemplates?.find(t => t.id === editingTemplateId);
+    if (tpl) renderTemplateFields(tpl);
   };
 
   editPanel.addEventListener('input', saveComp);
@@ -1940,8 +1957,16 @@ function toggleCompEdit(compId) {
     editPanel.classList.add('slide-out');
     editPanel.addEventListener('animationend', async () => {
       globals.fieldComponents = globals.fieldComponents.filter(c => c.id !== compId);
+      for (const tpl of (globals.cardTemplates || [])) {
+        tpl.fieldIds = tpl.fieldIds.filter(id => id !== compId);
+      }
       await storage.saveGlobals(globals);
       renderComponentPanel();
+      const tpl = globals.cardTemplates?.find(t => t.id === editingTemplateId);
+      if (tpl) {
+        renderTemplateFields(tpl);
+        renderTemplatePreview(tpl);
+      }
     }, { once: true });
   });
 
@@ -2325,7 +2350,7 @@ function formatPage(val) {
 function formatNumberField(val, format) {
   val = val.trim();
   if (!val || !format) return val;
-  const numMatch = val.match(/\d+/);
+  const numMatch = val.match(/-?\d+\.?\d*/);
   if (!numMatch) return val;
   const num = numMatch[0];
 

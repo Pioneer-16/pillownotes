@@ -1,13 +1,13 @@
 {
-  "books": ["示例书籍"],
-  "dynasties": ["现代", "先秦", "秦", "汉", "三国", "魏晋", "南北朝", "隋", "唐", "宋", "元", "明", "清"],
-  "lastBook": "示例书籍",
-  "lastDynasty": "现代",
-  "dropdown_book": ["示例书籍"],
-  "dropdown_dynasty": ["现代", "先秦", "秦", "汉", "三国", "魏晋", "南北朝", "隋", "唐", "宋", "元", "明", "清"],
-  "last_book": "示例书籍",
-  "last_dynasty": "现代",
-  "notebooks": ["读书笔记", "诗词赏析", "学习笔记", "技术文档", "漫画绘本", "哲学摘录", "书法碑帖"],
+  "books": ["中国古代文化常识"],
+  "dynasties": ["东汉", "殷商", "唐代", "战国", "春秋", "先秦", "汉代", "西晋", "西汉", "秦朝"],
+  "lastBook": "中国古代文化常识",
+  "lastDynasty": "唐代",
+  "dropdown_book": ["中国古代文化常识"],
+  "dropdown_dynasty": ["东汉", "殷商", "唐代", "战国", "春秋", "先秦", "汉代", "西晋", "西汉", "秦朝"],
+  "last_book": "中国古代文化常识",
+  "last_dynasty": "唐代",
+  "notebooks": ["天文", "历法", "乐律", "诗词赏析", "学习笔记", "技术文档", "漫画绘本", "哲学摘录", "书法碑帖"],
   "fieldComponents": [
     {
       "id": "content",
@@ -33,7 +33,7 @@
     {
       "id": "dynasty",
       "type": "dropdown",
-      "label": "朝代",
+      "label": "朝代 / 时间",
       "placeholder": "朝代",
       "config": {}
     },
@@ -45,11 +45,32 @@
       "config": { "hasTable": true, "display": "quote" }
     },
     {
-      "id": "poem_text",
+      "id": "field_mqseerno1c14",
+      "type": "date",
+      "label": "日期",
+      "placeholder": "",
+      "config": { "format": "YYYY-MM-DD" }
+    },
+    {
+      "id": "field_mqsf3bog8kf5",
+      "type": "url",
+      "label": "链接",
+      "placeholder": "url",
+      "config": {}
+    },
+    {
+      "id": "field_mqsgzpfbk8lb",
+      "type": "rating",
+      "label": "评分",
+      "placeholder": "",
+      "config": {}
+    },
+    {
+      "id": "field_mqsh3e0idimh",
       "type": "textarea",
-      "label": "诗词原文",
-      "placeholder": "输入诗词原文…",
-      "config": { "hasTable": false, "display": "quote" }
+      "label": "图片",
+      "placeholder": "可以直接粘贴图片",
+      "config": { "hasTable": true, "display": "quote" }
     },
     {
       "id": "author",
@@ -70,12 +91,12 @@
       "type": "textarea",
       "label": "赏析",
       "placeholder": "个人赏析和理解…",
-      "config": { "hasTable": false }
+      "config": { "hasTable": false, "display": "quote" }
     },
     {
       "id": "rating",
       "type": "rating",
-      "label": "评分",
+      "label": "掌握程度",
       "placeholder": "",
       "config": {}
     },
@@ -87,32 +108,18 @@
       "config": {}
     },
     {
-      "id": "chapter",
-      "type": "input",
-      "label": "章节",
-      "placeholder": "第X章",
-      "config": {}
-    },
-    {
       "id": "knowledge_point",
       "type": "textarea",
       "label": "知识点",
       "placeholder": "核心知识点…",
-      "config": { "hasTable": true }
+      "config": { "hasTable": true, "display": "quote" }
     },
     {
       "id": "exercises",
       "type": "textarea",
       "label": "练习/思考",
       "placeholder": "练习题或思考…",
-      "config": { "hasTable": true }
-    },
-    {
-      "id": "mastery",
-      "type": "dropdown",
-      "label": "掌握程度",
-      "placeholder": "掌握程度",
-      "config": {}
+      "config": { "hasTable": true, "display": "quote" }
     },
     {
       "id": "tech_name",
@@ -133,35 +140,14 @@
       "type": "textarea",
       "label": "用法示例",
       "placeholder": "代码示例或用法…",
-      "config": { "hasTable": true }
+      "config": { "hasTable": true, "display": "quote" }
     },
     {
       "id": "notes",
       "type": "textarea",
       "label": "注意事项",
       "placeholder": "注意事项和踩坑记录…",
-      "config": { "hasTable": false }
-    },
-    {
-      "id": "reference_url",
-      "type": "url",
-      "label": "参考链接",
-      "placeholder": "添加链接",
-      "config": {}
-    },
-    {
-      "id": "work_name",
-      "type": "input",
-      "label": "作品名",
-      "placeholder": "漫画/绘本名称",
-      "config": {}
-    },
-    {
-      "id": "art_style",
-      "type": "textarea",
-      "label": "画风评价",
-      "placeholder": "画风特点和评价…",
-      "config": { "hasTable": false }
+      "config": { "hasTable": true, "display": "quote" }
     },
     {
       "id": "story_summary",
@@ -178,25 +164,18 @@
       "config": {}
     },
     {
-      "id": "original_text",
-      "type": "textarea",
-      "label": "原文",
-      "placeholder": "原文摘录…",
-      "config": { "hasTable": false, "display": "quote" }
-    },
-    {
       "id": "translation",
       "type": "textarea",
       "label": "译注",
       "placeholder": "译文或注释…",
-      "config": { "hasTable": false }
+      "config": { "hasTable": true, "display": "quote" }
     },
     {
       "id": "thoughts",
       "type": "textarea",
       "label": "个人感悟",
       "placeholder": "个人理解和思考…",
-      "config": { "hasTable": false }
+      "config": { "hasTable": true, "display": "quote" }
     },
     {
       "id": "calligraphy_name",
@@ -220,59 +199,61 @@
       "config": {}
     },
     {
-      "id": "image",
-      "type": "textarea",
-      "label": "图片",
-      "placeholder": "粘贴碑帖图片…",
-      "config": { "hasTable": false }
-    },
-    {
       "id": "evaluation",
       "type": "textarea",
       "label": "评价",
       "placeholder": "艺术特点和个人评价…",
-      "config": { "hasTable": false }
+      "config": { "hasTable": false, "display": "quote" }
+    },
+    {
+      "id": "field_mqv0acg6lq9s",
+      "type": "number",
+      "label": "章节",
+      "placeholder": "章节",
+      "config": { "format": "第 0 章" }
     }
   ],
   "cardTemplates": [
     {
       "id": "default",
-      "name": "默认笔记",
-      "fieldIds": ["content", "book", "page", "dynasty", "quote"]
+      "name": "古籍笔记",
+      "fieldIds": ["content", "book", "page", "dynasty", "quote", "field_mqsh3e0idimh"]
     },
     {
       "id": "tpl_poetry",
       "name": "诗词赏析",
-      "fieldIds": ["poem_text", "author", "dynasty", "source", "analysis", "rating"]
+      "fieldIds": ["content", "author", "dynasty", "source", "analysis", "rating"]
     },
     {
       "id": "tpl_study",
       "name": "学习笔记",
-      "fieldIds": ["content", "course_name", "chapter", "knowledge_point", "exercises", "mastery"]
+      "fieldIds": ["content", "course_name", "field_mqv0acg6lq9s", "knowledge_point", "exercises", "rating"]
     },
     {
       "id": "tpl_tech",
       "name": "技术文档",
-      "fieldIds": ["tech_name", "version", "content", "usage_example", "notes", "reference_url"]
+      "fieldIds": ["tech_name", "version", "content", "usage_example", "notes", "field_mqsf3bog8kf5"]
     },
     {
       "id": "tpl_comic",
       "name": "漫画绘本",
-      "fieldIds": ["work_name", "author", "art_style", "story_summary", "rating"]
+      "fieldIds": ["book", "author", "story_summary", "evaluation"]
     },
     {
       "id": "tpl_philosophy",
       "name": "哲学摘录",
-      "fieldIds": ["book", "school", "original_text", "translation", "thoughts", "rating"]
+      "fieldIds": ["book", "school", "content", "translation", "thoughts", "rating"]
     },
     {
       "id": "tpl_calligraphy",
       "name": "书法碑帖",
-      "fieldIds": ["calligraphy_name", "calligrapher", "dynasty", "script_type", "image", "evaluation"]
+      "fieldIds": ["calligraphy_name", "calligrapher", "dynasty", "script_type", "field_mqsh3e0idimh", "evaluation"]
     }
   ],
   "notebookTemplates": {
-    "读书笔记": "default",
+    "天文": "default",
+    "历法": "default",
+    "乐律": "default",
     "诗词赏析": "tpl_poetry",
     "学习笔记": "tpl_study",
     "技术文档": "tpl_tech",

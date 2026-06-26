@@ -47,6 +47,15 @@ function getGlobals() {
   if (fs.existsSync(GLOBALS_FILE)) {
     try { return JSON.parse(fs.readFileSync(GLOBALS_FILE, 'utf-8')); } catch (e) {}
   }
+  // 首次运行时从样例数据加载
+  const sampleFile = path.join(DATA_DIR, 'sample', '_globals.json');
+  if (fs.existsSync(sampleFile)) {
+    try {
+      const sample = JSON.parse(fs.readFileSync(sampleFile, 'utf-8'));
+      saveGlobals(sample);
+      return sample;
+    } catch (e) {}
+  }
   return { books: [], dynasties: [], lastBook: '', lastDynasty: '', notebooks: [] };
 }
 
@@ -58,7 +67,20 @@ function saveGlobals(data) {
 const NOTES_FILE = path.join(DATA_DIR, 'notes.json');
 
 function readAllNotes() {
-  if (!fs.existsSync(NOTES_FILE)) return [];
+  if (!fs.existsSync(NOTES_FILE)) {
+    // 首次运行时从样例数据加载
+    const sampleFile = path.join(DATA_DIR, 'sample', 'notes.json');
+    if (fs.existsSync(sampleFile)) {
+      try {
+        const sample = JSON.parse(fs.readFileSync(sampleFile, 'utf-8'));
+        if (Array.isArray(sample)) {
+          saveAllNotes(sample);
+          return sample;
+        }
+      } catch (e) {}
+    }
+    return [];
+  }
   try {
     const data = JSON.parse(fs.readFileSync(NOTES_FILE, 'utf-8'));
     if (!Array.isArray(data)) return [];
