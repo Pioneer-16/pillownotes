@@ -2790,10 +2790,34 @@ function renderQuote(str) {
   let html = '';
   let inTable = false;
   let tableLines = [];
+  let inCodeBlock = false;
+  let codeLines = [];
+  let codeLang = '';
 
   for (let i = 0; i < lines.length; i++) {
     const rawLine = lines[i];
     const trimmed = rawLine.trim();
+
+    // 代码块处理（优先级最高）
+    if (trimmed.startsWith('```')) {
+      if (inCodeBlock) {
+        html += `<pre><code class="language-${escapeHtml(codeLang)}">${escapeHtml(codeLines.join('\n'))}</code></pre>`;
+        inCodeBlock = false;
+        codeLines = [];
+        codeLang = '';
+      } else {
+        if (inTable) { html += renderTable(tableLines); inTable = false; tableLines = []; }
+        inCodeBlock = true;
+        codeLang = trimmed.slice(3).trim();
+      }
+      continue;
+    }
+
+    // 在代码块内，直接收集行
+    if (inCodeBlock) {
+      codeLines.push(rawLine);
+      continue;
+    }
 
     if (trimmed === '') {
       if (inTable) { html += renderTable(tableLines); inTable = false; tableLines = []; }
@@ -2832,6 +2856,7 @@ function renderQuote(str) {
   }
 
   if (inTable) { html += renderTable(tableLines); }
+  if (inCodeBlock) html += `<pre><code class="language-${escapeHtml(codeLang)}">${escapeHtml(codeLines.join('\n'))}</code></pre>`;
   return html;
 }
 
