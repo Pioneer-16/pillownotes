@@ -1204,8 +1204,8 @@ function insertTable(btn) {
     end: textarea.selectionEnd
   };
 
-  document.getElementById('table-rows').textContent = '3';
-  document.getElementById('table-cols').textContent = '3';
+  document.getElementById('table-rows').value = '3';
+  document.getElementById('table-cols').value = '3';
   showTableEditor(3, 3);
   document.getElementById('table-overlay').style.display = 'flex';
 }
@@ -2536,18 +2536,29 @@ function setupEvents() {
     }
   });
 
+  function updateTableEditor() {
+    let rows = parseInt(tableRowsEl.value) || 1;
+    let cols = parseInt(tableColsEl.value) || 1;
+    rows = Math.max(1, Math.min(20, rows));
+    cols = Math.max(1, Math.min(10, cols));
+    showTableEditor(rows, cols);
+  }
+
+  tableRowsEl.addEventListener('input', updateTableEditor);
+  tableColsEl.addEventListener('input', updateTableEditor);
+
   tableOverlay.addEventListener('click', (e) => {
     const btn = e.target.closest('[data-action]');
     if (!btn) return;
     const action = btn.dataset.action;
-    let rows = parseInt(tableRowsEl.textContent);
-    let cols = parseInt(tableColsEl.textContent);
+    let rows = parseInt(tableRowsEl.value) || 1;
+    let cols = parseInt(tableColsEl.value) || 1;
     if (action === 'table-rows-minus') rows = Math.max(1, rows - 1);
     else if (action === 'table-rows-plus') rows = Math.min(20, rows + 1);
     else if (action === 'table-cols-minus') cols = Math.max(1, cols - 1);
     else if (action === 'table-cols-plus') cols = Math.min(10, cols + 1);
-    tableRowsEl.textContent = rows;
-    tableColsEl.textContent = cols;
+    tableRowsEl.value = rows;
+    tableColsEl.value = cols;
     showTableEditor(rows, cols);
   });
 
