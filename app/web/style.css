@@ -1301,6 +1301,7 @@ input[type="checkbox"] {
   align-items: center;
   justify-content: space-between;
   padding: 7px 12px;
+  border: 1px solid transparent;
   border-radius: var(--radius);
   cursor: pointer;
   transition: all var(--transition);

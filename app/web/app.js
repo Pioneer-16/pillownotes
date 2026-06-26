@@ -140,6 +140,20 @@ function ensureTemplateDefaults() {
   if (!globals.notebookTemplates) {
     globals.notebookTemplates = {};
   }
+
+  // 迁移旧的 book/dynasty 数据到通用格式
+  if (globals.books && !globals.dropdown_book) {
+    globals.dropdown_book = globals.books;
+  }
+  if (globals.dynasties && !globals.dropdown_dynasty) {
+    globals.dropdown_dynasty = globals.dynasties;
+  }
+  if (globals.lastBook && !globals.last_book) {
+    globals.last_book = globals.lastBook;
+  }
+  if (globals.lastDynasty && !globals.last_dynasty) {
+    globals.last_dynasty = globals.lastDynasty;
+  }
 }
 
 function generateId() {
@@ -568,11 +582,11 @@ function editNote(index) {
 
       if (comp.type === 'dropdown') {
         const allNotesForOptions = notes.map(n => n[id]).filter(Boolean);
-        const globalKey = id === 'book' ? 'books' : id === 'dynasty' ? 'dynasties' : null;
-        const globalOptions = globalKey ? (globals[globalKey] || []) : [];
+        const globalKey = `dropdown_${id}`;
+        const globalOptions = globals[globalKey] || [];
         const usedOptions = [...new Set([...globalOptions, ...allNotesForOptions])];
         const optionsHtml = usedOptions.map(o => `<div class="dropdown-item" data-value="${escapeHtml(o)}">${escapeHtml(o)}</div>`).join('');
-        const defaultVal = val || (globalKey === 'books' ? globals.lastBook : globalKey === 'dynasties' ? globals.lastDynasty : '');
+        const defaultVal = val || (globals[`last_${id}`] || '');
         fieldsHtml += `
         <div class="${colClass}">
           <label class="edit-label">${escapeHtml(comp.label)}</label>
@@ -1060,18 +1074,16 @@ async function saveEdit(index) {
 
   await storage.saveAllNotes(allNotes);
 
-  // 更新全局选项（书名、朝代等下拉字段的历史数据）
+  // 更新全局选项（下拉字段的历史数据）
   for (const fieldId of template.fieldIds) {
     const comp = getComponentById(fieldId);
     if (!comp || comp.type !== 'dropdown') continue;
     const val = fieldValues[fieldId];
     if (!val) continue;
-    const globalKey = fieldId === 'book' ? 'books' : fieldId === 'dynasty' ? 'dynasties' : null;
-    if (globalKey) {
-      if (!globals[globalKey].includes(val)) globals[globalKey].push(val);
-      if (globalKey === 'books') globals.lastBook = val;
-      if (globalKey === 'dynasties') globals.lastDynasty = val;
-    }
+    const globalKey = `dropdown_${fieldId}`;
+    if (!globals[globalKey]) globals[globalKey] = [];
+    if (!globals[globalKey].includes(val)) globals[globalKey].push(val);
+    globals[`last_${fieldId}`] = val;
   }
   await storage.saveGlobals(globals);
 

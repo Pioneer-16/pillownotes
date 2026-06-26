@@ -105,6 +105,7 @@ function createNotebook(name) {
 function deleteNotebook(name) {
   const globals = getGlobals();
   globals.notebooks = (globals.notebooks || []).filter(n => n !== name);
+  if (globals.notebookTemplates) delete globals.notebookTemplates[name];
   saveGlobals(globals);
   const notes = readAllNotes();
   const filtered = notes.filter(n => {
@@ -214,14 +215,14 @@ const server = http.createServer(async (req, res) => {
     if (!checkAuth(req)) return sendError(res, '需要验证密码', 401);
     const data = await parseBody(req);
     const globals = getGlobals();
-    if (data.books) globals.books = [...new Set(data.books)];
-    if (data.dynasties) globals.dynasties = [...new Set(data.dynasties)];
-    if (data.lastBook !== undefined) globals.lastBook = data.lastBook;
-    if (data.lastDynasty !== undefined) globals.lastDynasty = data.lastDynasty;
-    if (data.notebooks) globals.notebooks = [...new Set(data.notebooks)];
-    if (data.fieldComponents) globals.fieldComponents = data.fieldComponents;
-    if (data.cardTemplates) globals.cardTemplates = data.cardTemplates;
-    if (data.notebookTemplates) globals.notebookTemplates = data.notebookTemplates;
+    // 通用合并：保留已有的 key，用新数据覆盖
+    for (const key of Object.keys(data)) {
+      if (Array.isArray(data[key]) && Array.isArray(globals[key])) {
+        globals[key] = [...new Set([...globals[key], ...data[key]])];
+      } else {
+        globals[key] = data[key];
+      }
+    }
     saveGlobals(globals);
     return sendJSON(res, { success: true });
   }
