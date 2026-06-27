@@ -65,6 +65,15 @@ const storage = {
     return await res.json();
   },
 
+  async filterNotes(filters) {
+    const params = new URLSearchParams();
+    for (const [k, v] of Object.entries(filters)) {
+      if (v) params.set(k, v);
+    }
+    const res = await fetch(`${API_BASE}/api/notes/filter?${params}`);
+    return await res.json();
+  },
+
   async deleteImage(url) {
     const filename = url.split('/').pop();
     await fetch(`${API_BASE}/api/images/${encodeURIComponent(filename)}`, {
@@ -1749,9 +1758,12 @@ function setupSettingsEvents() {
   const aiSidebar = document.getElementById('ai-chat-sidebar');
   const aiClose = document.getElementById('ai-chat-close');
   const btnAiChat = document.getElementById('btn-ai-chat');
+  const btnAiSettings = document.getElementById('btn-ai-settings');
+  const aiSettingsPanel = document.getElementById('ai-settings-panel');
   const aiInput = document.getElementById('ai-chat-input');
   const aiSend = document.getElementById('ai-chat-send');
   const aiMessages = document.getElementById('ai-chat-messages');
+  const aiResize = document.getElementById('ai-chat-resize');
 
   btnAiChat.addEventListener('click', () => {
     aiSidebar.classList.toggle('open');
@@ -1764,34 +1776,359 @@ function setupSettingsEvents() {
     aiSidebar.classList.remove('open');
   });
 
+  // AI 设置面板
+  btnAiSettings.addEventListener('click', () => {
+    const isOpen = aiSettingsPanel.classList.toggle('open');
+    if (isOpen) {
+      const aiConfig = globals.aiConfig || {};
+      document.getElementById('ai-api-url').value = aiConfig.apiUrl || '';
+      document.getElementById('ai-api-key').value = aiConfig.apiKey || '';
+      document.getElementById('ai-model').value = aiConfig.model || '';
+    }
+  });
+
+  // 保存 AI 配置
+  const btnSaveAiConfig = document.getElementById('btn-save-ai-config');
+  btnSaveAiConfig.addEventListener('click', async () => {
+    const apiUrl = document.getElementById('ai-api-url').value.trim();
+    const apiKey = document.getElementById('ai-api-key').value.trim();
+    const model = document.getElementById('ai-model').value.trim();
+
+    if (!apiUrl || !apiKey) {
+      showToast('请填写 API 地址和密钥');
+      return;
+    }
+
+    globals.aiConfig = { apiUrl, apiKey, model };
+    await storage.saveGlobals(globals);
+    showToast('AI 配置已保存');
+    aiSettingsPanel.classList.remove('open');
+  });
+
+  // 拖动调整宽度
+  let isResizing = false;
+  let startX = 0;
+  let startWidth = 0;
+
+  aiResize.addEventListener('mousedown', (e) => {
+    isResizing = true;
+    startX = e.clientX;
+    startWidth = aiSidebar.offsetWidth;
+    aiSidebar.style.transition = 'none';
+    aiResize.classList.add('active');
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+  });
+
+  document.addEventListener('mousemove', (e) => {
+    if (!isResizing) return;
+    const diff = e.clientX - startX;
+    const newWidth = Math.max(250, startWidth + diff);
+    aiSidebar.style.width = newWidth + 'px';
+  });
+
+  document.addEventListener('mouseup', () => {
+    if (isResizing) {
+      isResizing = false;
+      aiSidebar.style.transition = '';
+      aiResize.classList.remove('active');
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    }
+  });
+
+  function renderAiMarkdown(str) {
+    if (!str) return '';
+    if (typeof marked !== 'undefined') {
+      try { return marked.parse(str); } catch (e) { /* fallback */ }
+    }
+    return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>');
+  }
+
   function addAiMessage(text, type) {
     const div = document.createElement('div');
     div.className = `ai-message ai-message-${type}`;
-    div.innerHTML = text;
+    div.innerHTML = type === 'ai' ? renderAiMarkdown(text) : text;
     aiMessages.appendChild(div);
     aiMessages.scrollTop = aiMessages.scrollHeight;
+    return div;
   }
+
+  function addAiRecommendNotes(notes) {
+    if (!notes || notes.length === 0) return;
+    const wrap = document.createElement('div');
+    wrap.className = 'ai-recommend-notes';
+    let html = '<div class="ai-recommend-title">相关笔记推荐</div>';
+    notes.forEach(n => {
+      const notebooks = (n.notebooks || []).join(', ');
+      const content = (n.content || n.quote || n.book || '').substring(0, 80);
+      html += `<div class="ai-recommend-item" data-notebook="${escapeHtml(notebooks)}" data-id="${n.id}">
+        <div class="ai-recommend-info">
+          <span class="ai-recommend-text">${escapeHtml(content)}</span>
+          <span class="ai-recommend-notebook">${escapeHtml(notebooks)}</span>
+        </div>
+        <button class="ai-recommend-jump" data-action="ai-go-to-note" data-notebook="${escapeHtml(notebooks)}" data-id="${n.id}" title="前往笔记">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+        </button>
+      </div>`;
+    });
+    wrap.innerHTML = html;
+    aiMessages.appendChild(wrap);
+    aiMessages.scrollTop = aiMessages.scrollHeight;
+  }
+
+  aiMessages.addEventListener('click', async (e) => {
+    const btn = e.target.closest('[data-action="ai-go-to-note"]');
+    if (!btn) return;
+    const notebook = btn.dataset.notebook;
+    const noteId = btn.dataset.id;
+    if (notebook) {
+      await openNotebook(notebook);
+      if (noteId) scrollToNote(noteId);
+    }
+  });
+
+  const aiTools = [
+    {
+      type: 'function',
+      function: {
+        name: 'search_notes',
+        description: '按关键词搜索笔记，返回匹配的笔记列表',
+        parameters: {
+          type: 'object',
+          properties: { query: { type: 'string', description: '搜索关键词' } },
+          required: ['query']
+        }
+      }
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'get_notes_by_notebook',
+        description: '获取指定笔记本中的所有笔记',
+        parameters: {
+          type: 'object',
+          properties: { notebook: { type: 'string', description: '笔记本名称' } },
+          required: ['notebook']
+        }
+      }
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'list_notebooks',
+        description: '列出所有笔记本及其笔记数量',
+        parameters: { type: 'object', properties: {} }
+      }
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'filter_notes',
+        description: '按条件筛选笔记（书籍名、朝代、笔记本）',
+        parameters: {
+          type: 'object',
+          properties: {
+            book: { type: 'string', description: '书籍名' },
+            dynasty: { type: 'string', description: '朝代' },
+            notebook: { type: 'string', description: '笔记本名' }
+          }
+        }
+      }
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'get_all_notes',
+        description: '获取全部笔记概览（数据量大，最多返回 200 条精简数据）',
+        parameters: { type: 'object', properties: {} }
+      }
+    }
+  ];
+
+  function slimNote(n) {
+    const skip = new Set(['createdAt', 'updatedAt', 'matchField']);
+    const slim = {};
+    for (const [k, v] of Object.entries(n)) {
+      if (skip.has(k)) continue;
+      if (typeof v === 'string') slim[k] = v.length > 300 ? v.substring(0, 300) + '...' : v;
+      else slim[k] = v;
+    }
+    return slim;
+  }
+
+  function slimNotes(notes) {
+    return notes.slice(0, 30).map(slimNote);
+  }
+
+  async function executeAiTool(name, args) {
+    try {
+      switch (name) {
+        case 'search_notes':
+          return slimNotes(await storage.searchNotes(args.query || ''));
+        case 'get_notes_by_notebook':
+          return slimNotes(await storage.getNotes(args.notebook));
+        case 'list_notebooks':
+          return await storage.getNotebooks();
+        case 'filter_notes':
+          return slimNotes(await storage.filterNotes(args));
+        case 'get_all_notes':
+          return slimNotes(await storage.getAllNotes());
+        default:
+          return { error: `未知工具: ${name}` };
+      }
+    } catch (e) {
+      return { error: `工具执行失败: ${e.message}` };
+    }
+  }
+
+  const aiChatHistory = [];
 
   async function sendAiMessage() {
     const text = aiInput.value.trim();
     if (!text) return;
 
+    const aiConfig = globals.aiConfig || {};
+    if (!aiConfig.apiKey || !aiConfig.apiUrl) {
+      addAiMessage('<p>请先在设置中配置 AI API 地址和密钥。</p>', 'system');
+      return;
+    }
+
     addAiMessage(escapeHtml(text), 'user');
     aiInput.value = '';
 
-    // 搜索相关笔记
-    const searchResults = await storage.searchNotes(text);
-    const context = searchResults.slice(0, 5).map(n => {
-      const content = n.content || n.quote || n.book || '';
-      return `[${(n.notebooks || []).join(', ')}] ${content.substring(0, 200)}`;
-    }).join('\n\n');
+    const thinkingDiv = document.createElement('div');
+    thinkingDiv.className = 'ai-message ai-message-ai ai-thinking';
+    thinkingDiv.innerHTML = '<span class="thinking-text">AI 正在思考</span><span class="thinking-dots"><span></span><span></span><span></span></span>';
+    aiMessages.appendChild(thinkingDiv);
+    aiMessages.scrollTop = aiMessages.scrollHeight;
 
-    // 这里可以调用 AI API
-    // 目前先显示搜索结果
-    if (context) {
-      addAiMessage(`<p>根据你的问题，我找到了以下相关笔记：</p><pre>${escapeHtml(context)}</pre><p><em>（AI 功能需要配置 API 后才能使用）</em></p>`, 'ai');
-    } else {
-      addAiMessage('<p>没有找到相关笔记。请尝试其他问题。</p>', 'ai');
+    let apiUrl = aiConfig.apiUrl;
+    if (!apiUrl.endsWith('/chat/completions')) {
+      apiUrl = apiUrl.replace(/\/+$/, '') + '/chat/completions';
+    }
+
+    const systemMsg = {
+      role: 'system',
+      content: '你是「枕书阁」的读书笔记助手。你可以通过工具查询用户的笔记数据来回答问题。\n\n使用规则：\n1. 先用工具获取相关笔记数据，再基于数据回答\n2. 不要猜测笔记内容，必须通过工具查询\n3. 如果用户问笔记本相关，先用 list_notebooks\n4. 如果用户问某本书/某个朝代的笔记，用 filter_notes 或 search_notes\n5. 回答时引用具体笔记内容'
+    };
+
+    aiChatHistory.push({ role: 'user', content: text });
+    const messages = [systemMsg, ...aiChatHistory];
+
+    try {
+      const collectedNotes = new Map();
+
+      while (true) {
+        const response = await fetch(apiUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${aiConfig.apiKey}`
+          },
+          body: JSON.stringify({
+            model: aiConfig.model || 'gpt-3.5-turbo',
+            messages,
+            tools: aiTools,
+            stream: true
+          })
+        });
+
+        if (!response.ok) {
+          const errText = await response.text().catch(() => '');
+          thinkingDiv.remove();
+          addAiMessage(`<p>AI API 错误 (${response.status})：${errText || response.statusText}</p>`, 'system');
+          aiChatHistory.pop();
+          return;
+        }
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+        let fullText = '';
+        let toolCalls = [];
+        let aiMsgDiv = null;
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+
+          const lines = buffer.split('\n');
+          buffer = lines.pop();
+
+          for (const line of lines) {
+            if (!line.startsWith('data: ')) continue;
+            const payload = line.slice(6).trim();
+            if (payload === '[DONE]') continue;
+
+            let chunk;
+            try { chunk = JSON.parse(payload); } catch (e) { continue; }
+
+            const delta = chunk.choices?.[0]?.delta;
+            if (!delta) continue;
+
+            if (delta.content) {
+              fullText += delta.content;
+              if (!aiMsgDiv) {
+                thinkingDiv.remove();
+                aiMsgDiv = document.createElement('div');
+                aiMsgDiv.className = 'ai-message ai-message-ai';
+                aiMessages.appendChild(aiMsgDiv);
+              }
+              aiMsgDiv.innerHTML = renderAiMarkdown(fullText);
+              aiMessages.scrollTop = aiMessages.scrollHeight;
+            }
+
+            if (delta.tool_calls) {
+              for (const tc of delta.tool_calls) {
+                if (!toolCalls[tc.index]) {
+                  toolCalls[tc.index] = { id: tc.id, function: { name: tc.function?.name || '', arguments: '' } };
+                }
+                if (tc.id) toolCalls[tc.index].id = tc.id;
+                if (tc.function?.name) toolCalls[tc.index].function.name = tc.function.name;
+                if (tc.function?.arguments) toolCalls[tc.index].function.arguments += tc.function.arguments;
+              }
+            }
+          }
+        }
+
+        if (toolCalls.length > 0) {
+          const assistantMsg = { role: 'assistant', content: fullText || null, tool_calls: toolCalls.map((tc, i) => ({ id: tc.id, type: 'function', function: { name: tc.function.name, arguments: tc.function.arguments } })) };
+          messages.push(assistantMsg);
+          aiChatHistory.push(assistantMsg);
+
+          for (const tc of toolCalls) {
+            const args = JSON.parse(tc.function.arguments || '{}');
+            const result = await executeAiTool(tc.function.name, args);
+            if (Array.isArray(result)) {
+              for (const n of result) {
+                if (n.id) collectedNotes.set(n.id, n);
+              }
+            }
+            const toolMsg = { role: 'tool', tool_call_id: tc.id, content: JSON.stringify(result) };
+            messages.push(toolMsg);
+            aiChatHistory.push(toolMsg);
+          }
+          toolCalls = [];
+          fullText = '';
+          aiMsgDiv = null;
+          continue;
+        }
+
+        if (fullText) {
+          aiChatHistory.push({ role: 'assistant', content: fullText });
+        }
+
+        if (collectedNotes.size > 0) {
+          addAiRecommendNotes([...collectedNotes.values()].slice(0, 5));
+        }
+        break;
+      }
+    } catch (error) {
+      thinkingDiv.remove();
+      addAiMessage(`<p>调用 AI API 失败：${error.message}</p>', 'system`);
+      aiChatHistory.pop();
     }
   }
 

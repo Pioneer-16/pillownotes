@@ -1,6 +1,6 @@
 # 枕书阁 · PillowNotes
 
-一个轻量的本地读书笔记管理工具，支持自定义模板、多笔记本分类、卡片式展示。
+一个轻量的本地读书笔记管理工具，支持自定义模板、多笔记本分类、卡片式展示，内置 AI 助手。
 
 ## ✨ 特性
 
@@ -12,6 +12,29 @@
 - 🖼️ 图片粘贴 — 直接粘贴图片到笔记
 - 📥 导入导出 — JSON 格式备份恢复
 - 🔒 纯本地部署 — 数据在自己电脑上，无需注册
+- 🤖 AI 助手 — 智能问答、笔记推荐、流式输出
+
+## 🤖 AI 助手
+
+内置 AI 聊天助手，支持 OpenAI 兼容 API（如 MiMo、OpenAI、DeepSeek 等）。
+
+### 功能
+
+- **工具调用（Tool Calling）** — AI 自主查询笔记数据库，支持搜索、按笔记本获取、按书籍/朝代筛选等
+- **流式输出** — 逐字渲染，实时显示 AI 回复
+- **Markdown 渲染** — 支持标题、代码块、表格、列表、引用、链接等
+- **聊天上下文** — 多轮对话，AI 记住之前的交流内容
+- **笔记推荐** — AI 回复后展示相关笔记卡片，点击跳转按钮可定位到对应笔记
+
+### 配置
+
+在 AI 聊天侧栏的设置面板中填写：
+
+| 配置项 | 示例 |
+|--------|------|
+| API 地址 | `https://api.openai.com/v1` |
+| API 密钥 | `sk-...` |
+| 模型 | `gpt-4o-mini` |
 
 ## 📝 排版格式
 
@@ -96,10 +119,11 @@ AUTH_PASSWORD=your_password
 │   ├── index.html    # 页面结构
 │   ├── app.js        # 前端逻辑
 │   ├── style.css     # 样式
-│   └── server.js     # Node.js 服务端
+│   ├── server.js     # Node.js 服务端
+│   └── db.js         # SQLite 数据库层
 ├── data/             # 数据目录（自动创建）
 │   ├── _globals.json # 全局配置
-│   ├── notes.json    # 笔记数据
+│   ├── notes.db      # SQLite 笔记数据库
 │   └── images/       # 图片存储
 └── data/sample/      # 样例数据
 ```
@@ -108,8 +132,9 @@ AUTH_PASSWORD=your_password
 
 - 前端：原生 HTML/CSS/JS，无框架依赖
 - 后端：Node.js + 原生 HTTP
-- 存储：本地 JSON 文件
-- 依赖：仅 `dotenv`
+- 存储：SQLite（better-sqlite3）
+- AI：OpenAI 兼容 API + Tool Calling + SSE 流式输出
+- Markdown：marked.js
 
 ## 📄 许可证
 
