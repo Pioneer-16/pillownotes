@@ -65,6 +65,13 @@ const storage = {
     return await res.json();
   },
 
+  async deleteNote(id) {
+    await fetch(`${API_BASE}/api/notes/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders()
+    });
+  },
+
   async filterNotes(filters) {
     const params = new URLSearchParams();
     for (const [k, v] of Object.entries(filters)) {
@@ -1463,10 +1470,7 @@ async function deleteNote(index) {
   const ok = await showModal('确定删除这条笔记吗？');
   if (!ok) return;
   const note = notes[index];
-  const allNotes = await storage.getAllNotes();
-  const globalIdx = allNotes.findIndex(n => n.id === note.id);
-  if (globalIdx !== -1) allNotes.splice(globalIdx, 1);
-  await storage.saveAllNotes(allNotes);
+  await storage.deleteNote(note.id);
   notes = await storage.getNotes(currentNotebook);
   originalNotes = null;
   if (Object.keys(activeFilters).length > 0) {
@@ -1499,41 +1503,6 @@ async function addNote() {
   } else {
     renderNotes();
   }
-}
-
-// ===== 删除笔记 =====
-async function deleteNote(index) {
-  const ok = await showModal('确定删除这条笔记吗？');
-  if (!ok) return;
-  const note = notes[index];
-  const allNotes = await storage.getAllNotes();
-  const globalIdx = allNotes.findIndex(n => n.id === note.id);
-  if (globalIdx !== -1) allNotes.splice(globalIdx, 1);
-  await storage.saveAllNotes(allNotes);
-  notes = await storage.getNotes(currentNotebook);
-  renderNotes();
-}
-
-// ===== 新增笔记 =====
-async function addNote() {
-  if (!currentNotebook) return;
-  const template = getActiveTemplate();
-  const newNote = {
-    id: Date.now().toString(36) + Math.random().toString(36).slice(2, 8),
-    notebooks: [currentNotebook],
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
-  };
-  // 初始化模板字段
-  for (const fieldId of template.fieldIds) {
-    if (newNote[fieldId] === undefined) newNote[fieldId] = '';
-  }
-  const allNotes = await storage.getAllNotes();
-  allNotes.push(newNote);
-  await storage.saveAllNotes(allNotes);
-  notes = await storage.getNotes(currentNotebook);
-  renderNotes();
-
   const lastIndex = notes.length - 1;
   setTimeout(() => {
     const card = document.querySelector(`.note-card[data-index="${lastIndex}"]`);
@@ -1773,6 +1742,8 @@ function setupSettingsEvents() {
   });
 
   aiClose.addEventListener('click', () => {
+    aiSidebar.style.width = '';
+    aiSidebar.style.minWidth = '';
     aiSidebar.classList.remove('open');
   });
 

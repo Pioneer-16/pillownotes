@@ -158,7 +158,6 @@ const server = http.createServer(async (req, res) => {
     const { notes } = await parseBody(req);
     if (!Array.isArray(notes)) return sendError(res, '无效数据');
 
-    // 批量保存笔记
     for (const note of notes) {
       if (!note.id) continue;
       const existing = noteOps.getById(note.id);
@@ -168,6 +167,14 @@ const server = http.createServer(async (req, res) => {
         noteOps.create(note);
       }
     }
+    return sendJSON(res, { success: true });
+  }
+
+  if (pathname.startsWith('/api/notes/') && req.method === 'DELETE') {
+    if (!checkAuth(req)) return sendError(res, '需要验证密码', 401);
+    const id = decodeURIComponent(pathname.slice('/api/notes/'.length));
+    if (!id) return sendError(res, '无效 ID');
+    noteOps.delete(id);
     return sendJSON(res, { success: true });
   }
 
