@@ -31,6 +31,22 @@ const storage = {
     });
   },
 
+  async createNote(note) {
+    await fetch(`${API_BASE}/api/notes/${encodeURIComponent(note.id)}`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(note)
+    });
+  },
+
+  async updateNote(note) {
+    await fetch(`${API_BASE}/api/notes/${encodeURIComponent(note.id)}`, {
+      method: 'PUT',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(note)
+    });
+  },
+
   async createNotebook(name) {
     const res = await fetch(`${API_BASE}/api/notebooks`, {
       method: 'POST',
@@ -141,7 +157,7 @@ function ensureTemplateDefaults() {
     { id: 'book', type: 'dropdown', label: '书名', placeholder: '书名', config: { display: 'bookname' } },
     { id: 'page', type: 'number', label: '页码', placeholder: '页码', config: { format: 'P000' } },
     { id: 'dynasty', type: 'dropdown', label: '朝代 / 时间', placeholder: '朝代', config: {} },
-    { id: 'quote', type: 'textarea', label: '引用', placeholder: '引用原文…', config: { hasTable: true, display: 'quote' } }
+    { id: 'quote', type: 'textarea', label: '引用', placeholder: '引用原文…', config: { hasTable: true, isQuote: true } }
   ];
   const defaultIds = new Set(defaultComponents.map(c => c.id));
 
@@ -172,6 +188,10 @@ function ensureTemplateDefaults() {
   if (globals.lastDynasty && !globals.last_dynasty) {
     globals.last_dynasty = globals.lastDynasty;
   }
+  delete globals.books;
+  delete globals.dynasties;
+  delete globals.lastBook;
+  delete globals.lastDynasty;
 }
 
 function generateId() {
@@ -452,8 +472,8 @@ function renderCardFields(note, template, isSearch, q) {
     if (!val && val !== 0) continue;
 
     if (comp.type === 'textarea') {
-      const isQuote = comp.config?.display === 'quote';
-      const isCode = comp.config?.display === 'code';
+      const isQuote = comp.config?.isQuote;
+      const isCode = comp.config?.isCode;
       let rendered;
       if (isQuote) {
         rendered = renderQuote(val);
@@ -883,8 +903,8 @@ function editNote(index) {
       flushInline();
       if (comp.type === 'textarea') {
         const hasTable = comp.config?.hasTable;
-        const isQuote = comp.config?.display === 'quote';
-        const isCode = comp.config?.display === 'code';
+        const isQuote = comp.config?.isQuote;
+        const isCode = comp.config?.isCode;
         const cssClass = isQuote ? 'edit-quote' : (isCode ? 'edit-code' : 'edit-content');
         const rows = isQuote ? '2' : (isCode ? '4' : '3');
         fieldsHtml += `
@@ -1370,30 +1390,20 @@ async function saveEdit(index) {
   }
   if (notebooks.length === 0) notebooks.push(currentNotebook);
 
-  const allNotes = await storage.getAllNotes();
   const note = notes[index];
 
   if (!hasContent) {
-    const globalIdx = allNotes.findIndex(n => n.id === note.id);
-    if (globalIdx !== -1) allNotes.splice(globalIdx, 1);
+    await storage.deleteNote(note.id);
   } else {
-    const globalIdx = allNotes.findIndex(n => n.id === note.id);
     const updated = { id: note.id, ...fieldValues, notebooks, updatedAt: new Date().toISOString() };
-    // 保留旧数据中不在模板里的字段
     for (const key of Object.keys(note)) {
       if (!updated.hasOwnProperty(key) && key !== 'id' && key !== 'updatedAt') {
         updated[key] = note[key];
       }
     }
     if (note.createdAt) updated.createdAt = note.createdAt;
-    if (globalIdx !== -1) {
-      allNotes[globalIdx] = updated;
-    } else {
-      allNotes.push(updated);
-    }
+    await storage.updateNote(updated);
   }
-
-  await storage.saveAllNotes(allNotes);
 
   // 更新全局选项（下拉字段的历史数据）
   for (const fieldId of template.fieldIds) {
@@ -1451,10 +1461,7 @@ async function cancelEdit(index) {
     return val !== undefined && val !== null && val !== '';
   });
   if (!hasContent) {
-    const allNotes = await storage.getAllNotes();
-    const globalIdx = allNotes.findIndex(n => n.id === note.id);
-    if (globalIdx !== -1) allNotes.splice(globalIdx, 1);
-    await storage.saveAllNotes(allNotes);
+    await storage.deleteNote(note.id);
     notes = await storage.getNotes(currentNotebook);
   }
   originalNotes = null;
@@ -1478,6 +1485,7 @@ async function deleteNote(index) {
   } else {
     renderNotes();
   }
+  loadFiles();
 }
 
 // ===== 新增笔记 =====
@@ -1493,9 +1501,7 @@ async function addNote() {
   for (const fieldId of template.fieldIds) {
     if (newNote[fieldId] === undefined) newNote[fieldId] = '';
   }
-  const allNotes = await storage.getAllNotes();
-  allNotes.push(newNote);
-  await storage.saveAllNotes(allNotes);
+  await storage.createNote(newNote);
   notes = await storage.getNotes(currentNotebook);
   originalNotes = null;
   if (Object.keys(activeFilters).length > 0) {
@@ -1550,6 +1556,8 @@ async function deleteNotebook(name) {
   const ok = await showModal(`确定删除笔记本「${name}」吗？此操作不可恢复。`);
   if (!ok) return;
   await storage.deleteNotebook(name);
+  globals.notebooks = (globals.notebooks || []).filter(n => n !== name);
+  await storage.saveGlobals(globals);
   if (currentNotebook === name) {
     currentNotebook = null;
     notes = [];
@@ -1635,8 +1643,12 @@ async function importData(file) {
       });
 
       const allNotes = await storage.getAllNotes();
-      allNotes.push(...importedNotes);
-      await storage.saveAllNotes(allNotes);
+      const importMap = new Map(importedNotes.map(n => [n.id, n]));
+      const merged = allNotes.map(n => importMap.get(n.id) || n);
+      for (const n of importedNotes) {
+        if (!merged.some(m => m.id === n.id)) merged.push(n);
+      }
+      await storage.saveAllNotes(merged);
 
       // 更新全局笔记本列表
       if (importedGlobals && importedGlobals.notebooks) {
@@ -2419,14 +2431,14 @@ function renderTemplatePreview(template) {
       flushInline();
       if (comp.type === 'textarea') {
         const hasTable = comp.config?.hasTable;
-        const isCode = comp.config?.display === 'code';
+        const isCode = comp.config?.isCode;
         editHtml += `<div class="edit-col">
           <label class="edit-label">${escapeHtml(comp.label)}</label>
           ${hasTable || isCode ? `<div class="edit-toolbar">
             ${hasTable ? '<button type="button" class="edit-tool-btn" disabled title="插入表格"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/></svg></button>' : ''}
             ${isCode ? '<button type="button" class="edit-tool-btn" disabled title="插入代码块"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg></button>' : ''}
           </div>` : ''}
-          <textarea class="edit-field" placeholder="${escapeHtml(comp.placeholder || '')}" rows="${comp.config?.display === 'quote' ? '2' : (isCode ? '4' : '3')}" disabled>${escapeHtml(sampleNote[fieldId] || '')}</textarea>
+          <textarea class="edit-field" placeholder="${escapeHtml(comp.placeholder || '')}" rows="${comp.config?.isQuote ? '2' : (isCode ? '4' : '3')}" disabled>${escapeHtml(sampleNote[fieldId] || '')}</textarea>
         </div>`;
       } else {
         const val = sampleNote[fieldId] || '';
@@ -2587,10 +2599,11 @@ function renderCompItem(comp, inTemplate) {
 function getCompSummary(comp) {
   if (comp.config?.format) return comp.config.format;
   if (comp.config?.display === 'bookname') return '《》';
-  if (comp.config?.display === 'quote') return '引用';
-  if (comp.config?.display === 'code') return '代码';
-  if (comp.config?.hasTable) return '表格';
-  return '';
+  const parts = [];
+  if (comp.config?.isQuote) parts.push('引用');
+  if (comp.config?.isCode) parts.push('代码');
+  if (comp.config?.hasTable) parts.push('表格');
+  return parts.join('+');
 }
 
 function toggleCompEdit(compId) {
@@ -2609,8 +2622,6 @@ function toggleCompEdit(compId) {
   let configHtml = '';
 
   if (comp.type === 'textarea') {
-    const isQuote = comp.config?.display === 'quote';
-    const isCode = comp.config?.display === 'code';
     configHtml = `
       <div class="comp-edit-row">
         <span class="comp-edit-label">插入表格</span>
@@ -2618,11 +2629,11 @@ function toggleCompEdit(compId) {
       </div>
       <div class="comp-edit-row">
         <span class="comp-edit-label">引用样式</span>
-        <label class="comp-edit-check"><input type="checkbox" data-config="quote" ${isQuote ? 'checked' : ''}> 折叠+绿线</label>
+        <label class="comp-edit-check"><input type="checkbox" data-config="isQuote" ${comp.config?.isQuote ? 'checked' : ''}> 折叠+绿线</label>
       </div>
       <div class="comp-edit-row">
         <span class="comp-edit-label">代码样式</span>
-        <label class="comp-edit-check"><input type="checkbox" data-config="code" ${isCode ? 'checked' : ''}> 等宽字体+背景</label>
+        <label class="comp-edit-check"><input type="checkbox" data-config="isCode" ${comp.config?.isCode ? 'checked' : ''}> 等宽字体+背景</label>
       </div>`;
   } else if (comp.type === 'dropdown') {
     const displayVal = comp.config?.display === 'bookname' ? '书名号《》' : '纯文本';
@@ -2718,13 +2729,7 @@ function toggleCompEdit(compId) {
     editPanel.querySelectorAll('[data-config]').forEach(el => {
       const key = el.dataset.config;
       if (el.type === 'checkbox') {
-        if (key === 'quote') {
-          comp.config.display = el.checked ? 'quote' : 'plain';
-        } else if (key === 'code') {
-          comp.config.display = el.checked ? 'code' : 'plain';
-        } else {
-          comp.config[key] = el.checked;
-        }
+        comp.config[key] = el.checked;
       } else if (el.dataset.rawValue !== undefined) {
         comp.config[key] = el.dataset.rawValue;
       } else {

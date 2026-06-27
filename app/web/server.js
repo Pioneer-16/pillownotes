@@ -89,7 +89,7 @@ const server = http.createServer(async (req, res) => {
 
   // CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Auth-Token');
   if (req.method === 'OPTIONS') { res.writeHead(204); res.end(); return; }
 
@@ -157,7 +157,6 @@ const server = http.createServer(async (req, res) => {
     if (!checkAuth(req)) return sendError(res, '需要验证密码', 401);
     const { notes } = await parseBody(req);
     if (!Array.isArray(notes)) return sendError(res, '无效数据');
-
     for (const note of notes) {
       if (!note.id) continue;
       const existing = noteOps.getById(note.id);
@@ -167,6 +166,27 @@ const server = http.createServer(async (req, res) => {
         noteOps.create(note);
       }
     }
+    return sendJSON(res, { success: true });
+  }
+
+  if (pathname.startsWith('/api/notes/') && req.method === 'PUT') {
+    if (!checkAuth(req)) return sendError(res, '需要验证密码', 401);
+    const note = await parseBody(req);
+    if (!note.id) return sendError(res, '无效数据');
+    const existing = noteOps.getById(note.id);
+    if (existing) {
+      noteOps.update(note);
+    } else {
+      noteOps.create(note);
+    }
+    return sendJSON(res, { success: true });
+  }
+
+  if (pathname.startsWith('/api/notes/') && req.method === 'POST') {
+    if (!checkAuth(req)) return sendError(res, '需要验证密码', 401);
+    const note = await parseBody(req);
+    if (!note.id) return sendError(res, '无效数据');
+    noteOps.create(note);
     return sendJSON(res, { success: true });
   }
 
@@ -188,9 +208,12 @@ const server = http.createServer(async (req, res) => {
     const data = await parseBody(req);
     const globals = getGlobals();
     // 字符串数组合并去重，对象数组直接覆盖
-    const stringArrayKeys = new Set(['books', 'dynasties', 'notebooks']);
+    const stringArrayKeys = new Set([]);
+    const overwriteKeys = new Set(['notebooks', 'books', 'dynasties']);
     for (const key of Object.keys(data)) {
-      if (Array.isArray(data[key]) && Array.isArray(globals[key]) && (stringArrayKeys.has(key) || key.startsWith('dropdown_'))) {
+      if (overwriteKeys.has(key)) {
+        globals[key] = data[key];
+      } else if (Array.isArray(data[key]) && Array.isArray(globals[key]) && key.startsWith('dropdown_')) {
         globals[key] = [...new Set([...globals[key], ...data[key]])];
       } else {
         globals[key] = data[key];
