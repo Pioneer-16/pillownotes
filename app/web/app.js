@@ -1746,7 +1746,7 @@ function setupSettingsEvents() {
   btnDeleteTemplate.addEventListener('click', deleteCurrentTemplate);
 
   // AI 聊天
-  const aiOverlay = document.getElementById('ai-chat-overlay');
+  const aiSidebar = document.getElementById('ai-chat-sidebar');
   const aiClose = document.getElementById('ai-chat-close');
   const btnAiChat = document.getElementById('btn-ai-chat');
   const aiInput = document.getElementById('ai-chat-input');
@@ -1754,16 +1754,14 @@ function setupSettingsEvents() {
   const aiMessages = document.getElementById('ai-chat-messages');
 
   btnAiChat.addEventListener('click', () => {
-    aiOverlay.style.display = 'flex';
-    setTimeout(() => aiInput.focus(), 100);
+    aiSidebar.classList.toggle('open');
+    if (aiSidebar.classList.contains('open')) {
+      setTimeout(() => aiInput.focus(), 300);
+    }
   });
 
   aiClose.addEventListener('click', () => {
-    aiOverlay.style.display = 'none';
-  });
-
-  aiOverlay.addEventListener('click', (e) => {
-    if (e.target === aiOverlay) aiOverlay.style.display = 'none';
+    aiSidebar.classList.remove('open');
   });
 
   function addAiMessage(text, type) {
