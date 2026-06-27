@@ -138,7 +138,9 @@ AUTH_PASSWORD=your_password
 
 ## 📄 许可证
 
-[MIT License](LICENSE)
+[GNU AGPL-3.0](LICENSE)
+
+使用本项目代码的衍生作品必须同样以 AGPL-3.0 开源。
 
 ## 💬 反馈
 
