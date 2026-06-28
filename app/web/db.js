@@ -36,6 +36,15 @@ db.exec(`
   CREATE TABLE IF NOT EXISTS notebooks (
     name TEXT PRIMARY KEY
   );
+
+  CREATE TABLE IF NOT EXISTS note_references (
+    source_id TEXT NOT NULL,
+    target_id TEXT NOT NULL,
+    type TEXT NOT NULL DEFAULT 'cross',
+    PRIMARY KEY (source_id, target_id),
+    FOREIGN KEY (source_id) REFERENCES notes(id) ON DELETE CASCADE,
+    FOREIGN KEY (target_id) REFERENCES notes(id) ON DELETE CASCADE
+  );
 `);
 
 // 全文搜索虚拟表（如果不存在）
@@ -172,29 +181,15 @@ const noteOps = {
     const allNotes = this.getAll();
 
     return allNotes.map(note => {
-      const fields = ['content', 'quote', 'book', 'dynasty', 'page'];
-      let matchField = 'other';
+      const skipFields = new Set(['id', 'notebooks', 'createdAt', 'updatedAt', 'matchField']);
+      const allFields = Object.keys(note).filter(k => !skipFields.has(k));
 
-      for (const field of fields) {
+      for (const field of allFields) {
         const val = note[field];
         if (val && String(val).toLowerCase().includes(q)) {
-          matchField = field;
-          break;
+          note.matchField = field;
+          return note;
         }
-      }
-
-      // 检查所有字段
-      const allFields = Object.keys(note).filter(k =>
-        k !== 'id' && k !== 'notebooks' && k !== 'createdAt' && k !== 'updatedAt'
-      );
-      const hasMatch = allFields.some(k => {
-        const val = note[k];
-        return val && String(val).toLowerCase().includes(q);
-      });
-
-      if (hasMatch) {
-        note.matchField = matchField;
-        return note;
       }
       return null;
     }).filter(Boolean).slice(0, 50);
@@ -268,4 +263,42 @@ const notebookOps = {
   }
 };
 
-module.exports = { db, noteOps, notebookOps };
+const refOps = {
+  getByNote(noteId) {
+    const outgoing = db.prepare(`
+      SELECT r.target_id as id, r.type, n.data
+      FROM note_references r JOIN notes n ON r.target_id = n.id
+      WHERE r.source_id = ?
+    `).all(noteId);
+    const incoming = db.prepare(`
+      SELECT r.source_id as id, r.type, n.data
+      FROM note_references r JOIN notes n ON r.source_id = n.id
+      WHERE r.target_id = ?
+    `).all(noteId);
+    return {
+      outgoing: outgoing.map(r => { const d = JSON.parse(r.data); d.id = r.id; d.refType = r.type; return d; }),
+      incoming: incoming.map(r => { const d = JSON.parse(r.data); d.id = r.id; d.refType = r.type; return d; })
+    };
+  },
+
+  add(sourceId, targetId, type) {
+    db.prepare('INSERT OR IGNORE INTO note_references (source_id, target_id, type) VALUES (?, ?, ?)').run(sourceId, targetId, type);
+    if (type === 'cross') {
+      db.prepare('INSERT OR IGNORE INTO note_references (source_id, target_id, type) VALUES (?, ?, ?)').run(targetId, sourceId, 'cross');
+    }
+  },
+
+  remove(sourceId, targetId) {
+    const row = db.prepare('SELECT type FROM note_references WHERE source_id = ? AND target_id = ?').get(sourceId, targetId);
+    db.prepare('DELETE FROM note_references WHERE source_id = ? AND target_id = ?').run(sourceId, targetId);
+    if (row && row.type === 'cross') {
+      db.prepare('DELETE FROM note_references WHERE source_id = ? AND target_id = ?').run(targetId, sourceId);
+    }
+  },
+
+  removeAllByNote(noteId) {
+    db.prepare('DELETE FROM note_references WHERE source_id = ? OR target_id = ?').run(noteId, noteId);
+  }
+};
+
+module.exports = { db, noteOps, notebookOps, refOps };

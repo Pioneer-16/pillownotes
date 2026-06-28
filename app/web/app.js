@@ -97,6 +97,27 @@ const storage = {
     return await res.json();
   },
 
+  async getRefs(noteId) {
+    const res = await fetch(`${API_BASE}/api/refs?noteId=${encodeURIComponent(noteId)}`);
+    return await res.json();
+  },
+
+  async addRef(sourceId, targetId, type) {
+    await fetch(`${API_BASE}/api/refs`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ sourceId, targetId, type })
+    });
+  },
+
+  async removeRef(sourceId, targetId) {
+    await fetch(`${API_BASE}/api/refs`, {
+      method: 'DELETE',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ sourceId, targetId })
+    });
+  },
+
   async deleteImage(url) {
     const filename = url.split('/').pop();
     await fetch(`${API_BASE}/api/images/${encodeURIComponent(filename)}`, {
@@ -164,9 +185,10 @@ function ensureTemplateDefaults() {
   if (!globals.fieldComponents || globals.fieldComponents.length === 0) {
     globals.fieldComponents = defaultComponents;
   } else {
-    // 保留默认组件（合并最新默认配置）+ 用户自定义组件
-    const customComps = globals.fieldComponents.filter(c => !defaultIds.has(c.id));
-    globals.fieldComponents = [...defaultComponents, ...customComps];
+    // 只补充缺失的默认组件，不覆盖用户已有的修改
+    const existingIds = new Set(globals.fieldComponents.map(c => c.id));
+    const missing = defaultComponents.filter(c => !existingIds.has(c.id));
+    if (missing.length > 0) globals.fieldComponents.push(...missing);
   }
   if (!globals.cardTemplates || globals.cardTemplates.length === 0) {
     globals.cardTemplates = [getDefaultTemplate()];
@@ -196,6 +218,17 @@ function ensureTemplateDefaults() {
 
 function generateId() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+}
+
+function getNoteSummary(note, maxLen = 30) {
+  const tpl = getActiveTemplate();
+  for (const fid of tpl.fieldIds) {
+    const comp = getComponentById(fid);
+    if (!comp || comp.type === 'number' || comp.type === 'date' || comp.type === 'rating') continue;
+    const val = note[fid];
+    if (val) return String(val).substring(0, maxLen);
+  }
+  return '';
 }
 
 function showToast(message, type = 'error') {
@@ -390,6 +423,7 @@ async function openNotebook(name) {
   placeholder.style.display = 'none';
   notesView.style.display = 'flex';
   renderNotes();
+  loadNoteRefs();
   await loadFiles();
 }
 
@@ -402,14 +436,7 @@ function renderNotes() {
 
   const template = getActiveTemplate();
 
-  notes.sort((a, b) => {
-    const pa = parsePageNum(a.page);
-    const pb = parsePageNum(b.page);
-    if (pa === null && pb === null) return 0;
-    if (pa === null) return 1;
-    if (pb === null) return -1;
-    return pa - pb;
-  });
+  notes.sort((a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0));
 
   notesList.innerHTML = notes.map((note, i) => {
     const hasContent = template.fieldIds.some(fid => {
@@ -442,6 +469,9 @@ function renderNotes() {
           ${urlLinks}
         </div>
         <div class="toolbar-right">
+          <button class="icon-btn-sm ref-btn" data-action="refs" data-index="${i}" title="引用" style="display:${note._hasOutgoingRefs ? '' : 'none'}">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>
+          </button>
           <button class="icon-btn-sm" data-action="edit" data-index="${i}" title="编辑">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
           </button>
@@ -456,6 +486,22 @@ function renderNotes() {
   document.querySelectorAll('.note-card-empty').forEach(card => {
     const index = parseInt(card.dataset.index);
     editNote(index);
+  });
+}
+
+async function loadNoteRefs() {
+  const snapshot = [...notes];
+  await Promise.all(snapshot.map(async (note) => {
+    if (!note?.id) return;
+    try {
+      const refs = await storage.getRefs(note.id);
+      note._hasOutgoingRefs = refs.outgoing.length > 0;
+    } catch (e) { note._hasOutgoingRefs = false; }
+  }));
+  if (notes !== snapshot) return;
+  document.querySelectorAll('.ref-btn[data-index]').forEach(btn => {
+    const idx = parseInt(btn.dataset.index);
+    btn.style.display = notes[idx]?._hasOutgoingRefs ? '' : 'none';
   });
 }
 
@@ -569,7 +615,8 @@ async function doSearch(q) {
 
   notesList.innerHTML = results.map((note, i) => {
     const notebooks = (note.notebooks || []).map(t => `<span class="note-tag" data-notebook="${escapeHtml(t)}">${escapeHtml(t)}</span>`).join('');
-    const matchBadge = note.matchField === 'quote' ? '<span class="match-badge">引用</span>' : '';
+    const matchComp = getComponentById(note.matchField);
+    const matchBadge = matchComp ? `<span class="match-badge">${escapeHtml(matchComp.label)}</span>` : '';
     const notebook = (note.notebooks || [])[0];
     const tplId = globals.notebookTemplates?.[notebook];
     const searchTemplate = tplId ? (globals.cardTemplates || []).find(t => t.id === tplId) || defaultTemplate : defaultTemplate;
@@ -946,6 +993,21 @@ function editNote(index) {
       ${fieldsHtml}
 
       <div class="edit-col">
+        <label class="edit-label">引用笔记</label>
+        <div class="edit-ref-manager" data-note-id="${note.id || ''}">
+          <div class="ref-chips" id="ref-chips-${index}"></div>
+          <div class="ref-search-wrap">
+            <input type="text" class="ref-search-input" id="ref-search-${index}" placeholder="搜索笔记添加引用…" autocomplete="off">
+            <div class="ref-search-results" id="ref-results-${index}"></div>
+          </div>
+          <div class="ref-type-select">
+            <label><input type="radio" name="ref-type-${index}" value="cross" checked> 交叉引用</label>
+            <label><input type="radio" name="ref-type-${index}" value="one-way"> 单向引用</label>
+          </div>
+        </div>
+      </div>
+
+      <div class="edit-col">
         <label class="edit-label">所属笔记本</label>
         <div class="edit-tag-manager" data-note-id="${note.id || ''}">
           <div class="tag-chips">${toggleChipsHtml}</div>
@@ -964,6 +1026,9 @@ function editNote(index) {
       </div>
     </div>
   `;
+
+  // 加载引用
+  loadEditRefs(note.id, index);
 
   // 下拉菜单交互
   card.querySelectorAll('.dropdown-toggle').forEach(btn => {
@@ -1434,6 +1499,7 @@ async function saveEdit(index) {
   } else {
     renderNotes();
   }
+  loadNoteRefs();
   await loadFiles();
 
   setTimeout(() => {
@@ -1514,6 +1580,188 @@ async function addNote() {
     const card = document.querySelector(`.note-card[data-index="${lastIndex}"]`);
     if (card) card.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }, 50);
+}
+
+// ===== 引用列 =====
+let currentRefNoteIndex = -1;
+
+async function loadEditRefs(noteId, index) {
+  const chipsEl = document.getElementById(`ref-chips-${index}`);
+  const searchInput = document.getElementById(`ref-search-${index}`);
+  const resultsEl = document.getElementById(`ref-results-${index}`);
+  if (!chipsEl || !searchInput) return;
+
+  const refs = await storage.getRefs(noteId);
+  const allRefs = [...refs.outgoing, ...refs.incoming];
+  const uniqueMap = new Map();
+  allRefs.forEach(r => { if (!uniqueMap.has(r.id)) uniqueMap.set(r.id, r); });
+
+  function renderChips() {
+    const chips = [];
+    uniqueMap.forEach((r, id) => {
+      const notebooks = (r.notebooks || []).join(', ');
+      const content = getNoteSummary(r, 30);
+      const icon = r.refType === 'cross' ? '⇄' : '→';
+      chips.push(`<span class="ref-chip" data-id="${id}"><span class="ref-chip-type">${icon}</span><span class="ref-chip-text">${escapeHtml(notebooks)} · ${escapeHtml(content)}</span><span class="ref-chip-remove" data-id="${id}">×</span></span>`);
+    });
+    chipsEl.innerHTML = chips.join('') || '<span class="ref-chips-empty">暂无引用</span>';
+  }
+  renderChips();
+
+  chipsEl.addEventListener('click', async (e) => {
+    const removeBtn = e.target.closest('.ref-chip-remove');
+    if (!removeBtn) return;
+    const targetId = removeBtn.dataset.id;
+    await storage.removeRef(noteId, targetId);
+    uniqueMap.delete(targetId);
+    renderChips();
+  });
+
+  let searchTimer;
+  searchInput.addEventListener('input', () => {
+    clearTimeout(searchTimer);
+    const q = searchInput.value.trim();
+    if (!q) { resultsEl.innerHTML = ''; resultsEl.style.display = 'none'; return; }
+    searchTimer = setTimeout(async () => {
+      const found = await storage.searchNotes(q);
+      const filtered = found.filter(n => n.id !== noteId && !uniqueMap.has(n.id));
+      if (filtered.length === 0) { resultsEl.innerHTML = ''; resultsEl.style.display = 'none'; return; }
+      resultsEl.style.display = 'block';
+      resultsEl.innerHTML = filtered.slice(0, 8).map(n => {
+        const notebooks = (n.notebooks || []).join(', ');
+        const content = getNoteSummary(n, 50);
+        return `<div class="ref-search-item" data-id="${n.id}">
+          <span class="ref-search-notebook">${escapeHtml(notebooks)}</span>
+          <span class="ref-search-text">${escapeHtml(content)}</span>
+        </div>`;
+      }).join('');
+    }, 200);
+  });
+
+  resultsEl.addEventListener('click', async (e) => {
+    const item = e.target.closest('.ref-search-item');
+    if (!item) return;
+    const targetId = item.dataset.id;
+    const type = document.querySelector(`input[name="ref-type-${index}"]:checked`)?.value || 'cross';
+    await storage.addRef(noteId, targetId, type);
+    const freshRefs = await storage.getRefs(noteId);
+    const allFresh = [...freshRefs.outgoing, ...freshRefs.incoming];
+    uniqueMap.clear();
+    allFresh.forEach(r => { if (!uniqueMap.has(r.id)) uniqueMap.set(r.id, r); });
+    renderChips();
+    searchInput.value = '';
+    resultsEl.innerHTML = '';
+    resultsEl.style.display = 'none';
+  });
+
+  searchInput.addEventListener('blur', () => {
+    setTimeout(() => { resultsEl.style.display = 'none'; }, 200);
+  });
+  searchInput.addEventListener('focus', () => {
+    if (resultsEl.innerHTML) resultsEl.style.display = 'block';
+  });
+}
+
+function renderRefCards(uniqueRefs) {
+  if (uniqueRefs.length === 0) return '<p class="empty-hint">暂无引用</p>';
+  const template = getActiveTemplate();
+  return uniqueRefs.map((r, i) => {
+    const { html: fieldsHtml, quoteFields, urlFields } = renderCardFields(r, template, false);
+    const tags = (r.notebooks || []);
+    const tagsHtml = tags.length ? `<div class="note-tags">${tags.map(t => `<span class="note-tag">${escapeHtml(t)}</span>`).join('')}</div>` : '';
+    const hasQuote = quoteFields.length > 0;
+    const hasUrl = urlFields.length > 0;
+    const quoteToggles = quoteFields.map(qf =>
+      `<div class="note-quote-toggle" data-action="toggle-quote" data-quote-id="${qf.id}" data-tooltip="${escapeHtml(qf.label)}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg></div>`
+    ).join('');
+    const urlLinks = urlFields.map(uf =>
+      `<a class="toolbar-url" href="${escapeHtml(uf.val)}" target="_blank" rel="noopener" data-tooltip="${escapeHtml(uf.val)}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg></a>`
+    ).join('');
+    return `<div class="note-card" data-id="${r.id}" style="animation-delay: ${Math.min(i * 0.05, 0.25)}s">
+      <div class="note-card-body">
+        ${fieldsHtml}
+        ${tagsHtml}
+      </div>
+      <div class="note-card-toolbar ${hasQuote || hasUrl ? '' : 'no-quote'}">
+        <div class="toolbar-left">
+          ${quoteToggles}
+          ${urlLinks}
+        </div>
+        <div class="toolbar-right">
+          <button class="icon-btn-sm" data-action="ref-jump" data-id="${r.id}" data-notebook="${escapeHtml((r.notebooks || [])[0] || '')}" title="跳转到笔记">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function openRefPanel(index) {
+  const note = notes[index];
+  if (!note) return;
+
+  const wrapper = document.getElementById('notes-columns-wrapper');
+  const existingRef = wrapper.querySelector('.ref-notes-list');
+
+  if (currentRefNoteIndex === index && existingRef) {
+    closeRefPanel();
+    return;
+  }
+
+  const refs = await storage.getRefs(note.id);
+  const allRefs = [...refs.outgoing, ...refs.incoming];
+  const uniqueMap = new Map();
+  allRefs.forEach(r => { if (!uniqueMap.has(r.id)) uniqueMap.set(r.id, r); });
+  const uniqueRefs = [...uniqueMap.values()];
+  const cardsHtml = renderRefCards(uniqueRefs);
+
+  if (existingRef) {
+    const header = existingRef.querySelector('.ref-notes-header');
+    while (header && header.nextElementSibling) header.nextElementSibling.remove();
+    header.insertAdjacentHTML('afterend', cardsHtml);
+    currentRefNoteIndex = index;
+    return;
+  }
+
+  const refDiv = document.createElement('div');
+  refDiv.className = 'notes-list ref-notes-list';
+  refDiv.innerHTML = `
+    <div class="ref-notes-header">
+      <span class="ref-notes-title">引用笔记</span>
+      <button class="icon-btn" data-action="close-ref" title="关闭">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    ${cardsHtml}
+  `;
+  wrapper.appendChild(refDiv);
+
+  const cards = refDiv.querySelectorAll('.note-card');
+  cards.forEach(c => { c.style.animation = 'none'; c.style.opacity = '0'; });
+  setTimeout(() => {
+    cards.forEach((c, i) => {
+      c.style.animation = `note-enter 0.5s cubic-bezier(0.22, 1, 0.36, 1) ${i * 0.05}s forwards`;
+    });
+  }, 425);
+
+  currentRefNoteIndex = index;
+}
+
+function closeRefPanel() {
+  const el = document.querySelector('.ref-notes-list');
+  if (!el) { currentRefNoteIndex = -1; return; }
+
+  el.classList.add('closing');
+  let done = false;
+  function cleanup() {
+    if (done) return;
+    done = true;
+    el.remove();
+  }
+  el.addEventListener('animationend', cleanup, { once: true });
+  setTimeout(cleanup, 400);
+  currentRefNoteIndex = -1;
 }
 
 // ===== 新建笔记本 =====
@@ -1648,7 +1896,65 @@ async function importData(file) {
       for (const n of importedNotes) {
         if (!merged.some(m => m.id === n.id)) merged.push(n);
       }
-      await storage.saveAllNotes(merged);
+      // 合并组件和模板，按 label 做 ID 映射
+      if (importedGlobals) {
+        const importedComps = importedGlobals.fieldComponents || [];
+        const existingComps = globals.fieldComponents || [];
+
+        // label → existing id 映射表
+        const labelToExistingId = new Map();
+        existingComps.forEach(c => labelToExistingId.set(c.label, c.id));
+
+        // 构建 imported id → existing id 的映射
+        const idMap = new Map();
+        for (const ic of importedComps) {
+          const existingId = labelToExistingId.get(ic.label);
+          if (existingId) {
+            idMap.set(ic.id, existingId);
+          } else {
+            // 新组件，直接加入
+            if (!existingComps.some(c => c.id === ic.id)) {
+              globals.fieldComponents.push(ic);
+            }
+            idMap.set(ic.id, ic.id);
+          }
+        }
+
+        // 用 idMap 重写导入笔记的字段 key
+        if (idMap.size > 0) {
+          for (const note of importedNotes) {
+            for (const [oldId, newId] of idMap) {
+              if (oldId !== newId && note[oldId] !== undefined) {
+                if (note[newId] === undefined) note[newId] = note[oldId];
+                delete note[oldId];
+              }
+            }
+          }
+          // 重新保存笔记（字段 key 已映射）
+          const allNotes2 = await storage.getAllNotes();
+          const importMap2 = new Map(importedNotes.map(n => [n.id, n]));
+          const merged2 = allNotes2.map(n => importMap2.get(n.id) || n);
+          for (const n of importedNotes) {
+            if (!merged2.some(m => m.id === n.id)) merged2.push(n);
+          }
+          await storage.saveAllNotes(merged2);
+        }
+
+        // 合并模板，按 name 匹配
+        const importedTemplates = importedGlobals.cardTemplates || [];
+        for (const it of importedTemplates) {
+          const existing = (globals.cardTemplates || []).find(t => t.name === it.name);
+          if (existing) {
+            // 映射 fieldIds
+            existing.fieldIds = it.fieldIds.map(fid => idMap.get(fid) || fid);
+          } else {
+            // 新模板，映射 fieldIds 后加入
+            it.fieldIds = it.fieldIds.map(fid => idMap.get(fid) || fid);
+            if (!globals.cardTemplates) globals.cardTemplates = [];
+            globals.cardTemplates.push(it);
+          }
+        }
+      }
 
       // 更新全局笔记本列表
       if (importedGlobals && importedGlobals.notebooks) {
@@ -1844,7 +2150,7 @@ function setupSettingsEvents() {
     let html = '<div class="ai-recommend-title">相关笔记推荐</div>';
     notes.forEach(n => {
       const notebooks = (n.notebooks || []).join(', ');
-      const content = (n.content || n.quote || n.book || '').substring(0, 80);
+      const content = getNoteSummary(n, 80);
       html += `<div class="ai-recommend-item" data-notebook="${escapeHtml(notebooks)}" data-id="${n.id}">
         <div class="ai-recommend-info">
           <span class="ai-recommend-text">${escapeHtml(content)}</span>
@@ -1871,7 +2177,18 @@ function setupSettingsEvents() {
     }
   });
 
-  const aiTools = [
+  function getAiTools() {
+    const tpl = getActiveTemplate();
+    const filterFields = { notebook: { type: 'string', description: '笔记本名称' } };
+    const fieldDescs = ['笔记本(notebook)'];
+    for (const fid of tpl.fieldIds) {
+      const comp = getComponentById(fid);
+      if (comp && comp.type === 'dropdown') {
+        filterFields[fid] = { type: 'string', description: comp.label };
+        fieldDescs.push(`${comp.label}(${fid})`);
+      }
+    }
+    return [
     {
       type: 'function',
       function: {
@@ -1908,14 +2225,10 @@ function setupSettingsEvents() {
       type: 'function',
       function: {
         name: 'filter_notes',
-        description: '按条件筛选笔记（书籍名、朝代、笔记本）',
+        description: `按条件筛选笔记。可用字段：${fieldDescs.join('、')}`,
         parameters: {
           type: 'object',
-          properties: {
-            book: { type: 'string', description: '书籍名' },
-            dynasty: { type: 'string', description: '朝代' },
-            notebook: { type: 'string', description: '笔记本名' }
-          }
+          properties: filterFields
         }
       }
     },
@@ -1926,8 +2239,21 @@ function setupSettingsEvents() {
         description: '获取全部笔记概览（数据量大，最多返回 200 条精简数据）',
         parameters: { type: 'object', properties: {} }
       }
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'get_note_refs',
+        description: '获取指定笔记的引用关系（关联的其他笔记）',
+        parameters: {
+          type: 'object',
+          properties: { noteId: { type: 'string', description: '笔记 ID' } },
+          required: ['noteId']
+        }
+      }
     }
-  ];
+    ];
+  }
 
   function slimNote(n) {
     const skip = new Set(['createdAt', 'updatedAt', 'matchField']);
@@ -1957,6 +2283,13 @@ function setupSettingsEvents() {
           return slimNotes(await storage.filterNotes(args));
         case 'get_all_notes':
           return slimNotes(await storage.getAllNotes());
+        case 'get_note_refs': {
+          const refs = await storage.getRefs(args.noteId);
+          const allRefs = [...refs.outgoing, ...refs.incoming];
+          const uniqueMap = new Map();
+          allRefs.forEach(r => { if (!uniqueMap.has(r.id)) uniqueMap.set(r.id, r); });
+          return slimNotes([...uniqueMap.values()]);
+        }
         default:
           return { error: `未知工具: ${name}` };
       }
@@ -2012,7 +2345,7 @@ function setupSettingsEvents() {
           body: JSON.stringify({
             model: aiConfig.model || 'gpt-3.5-turbo',
             messages,
-            tools: aiTools,
+            tools: getAiTools(),
             stream: true
           })
         });
@@ -2893,7 +3226,8 @@ function setupEvents() {
   document.getElementById('btn-new-file').addEventListener('click', createNotebook);
   document.getElementById('btn-add-note').addEventListener('click', addNote);
 
-  notesList.addEventListener('click', async (e) => {
+  const notesContent = document.getElementById('notes-content');
+  notesContent.addEventListener('click', async (e) => {
     // 点击笔记标签跳转到对应笔记本
     const noteTag = e.target.closest('.note-tag');
     if (noteTag && noteTag.dataset.notebook) {
@@ -2921,6 +3255,22 @@ function setupEvents() {
     if (action === 'delete') deleteNote(index);
     if (action === 'save-edit') saveEdit(index);
     if (action === 'cancel-edit') cancelEdit(index);
+    if (action === 'refs') openRefPanel(index);
+    if (action === 'close-ref') closeRefPanel();
+    if (action === 'ref-jump') {
+      const noteId = btn.dataset.id;
+      const notebook = btn.dataset.notebook;
+      if (notebook) {
+        if (notebook !== currentNotebook) {
+          await openNotebook(notebook);
+        }
+        if (noteId) {
+          scrollToNote(noteId);
+          const targetIndex = notes.findIndex(n => n.id === noteId);
+          if (targetIndex !== -1) openRefPanel(targetIndex);
+        }
+      }
+    }
     if (action === 'insert-table') insertTable(btn);
     if (action === 'insert-code') insertCodeBlock(btn);
     if (action === 'toggle-quote') {
@@ -3267,18 +3617,6 @@ function renderTable(lines) {
   return html;
 }
 
-function formatPage(val) {
-  val = val.trim();
-  if (!val) return '';
-  if (/^\d+$/.test(val)) {
-    return 'P' + val.padStart(3, '0');
-  }
-  const match = val.match(/^[Pp](\d+)$/);
-  if (match) {
-    return 'P' + match[1].padStart(3, '0');
-  }
-  return val;
-}
 
 function formatNumberField(val, format) {
   val = val.trim();
@@ -3326,7 +3664,7 @@ function formatDateField(val, format) {
     .replace(/D/gi, D);
 }
 
-function parsePageNum(val) {
+function parseNumField(val) {
   if (!val) return null;
   const match = val.match(/\d+/);
   return match ? parseInt(match[0]) : null;

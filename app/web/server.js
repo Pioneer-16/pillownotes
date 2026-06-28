@@ -7,7 +7,7 @@ require('dotenv').config({ path: require('path').resolve(__dirname, '../../.env'
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
-const { noteOps, notebookOps } = require('./db');
+const { noteOps, notebookOps, refOps } = require('./db');
 
 const PORT = process.env.PORT || 3000;
 const DATA_DIR = path.resolve(__dirname, '../../data');
@@ -57,7 +57,7 @@ function getGlobals() {
       return sample;
     } catch (e) {}
   }
-  return { books: [], dynasties: [], lastBook: '', lastDynasty: '', notebooks: [] };
+  return { fieldComponents: [], cardTemplates: [], notebookTemplates: {}, notebooks: [] };
 }
 
 function saveGlobals(data) {
@@ -198,6 +198,30 @@ const server = http.createServer(async (req, res) => {
     return sendJSON(res, { success: true });
   }
 
+  // --- 引用 ---
+  if (pathname === '/api/refs' && req.method === 'GET') {
+    const noteId = url.searchParams.get('noteId');
+    if (!noteId) return sendError(res, '缺少 noteId');
+    const refs = refOps.getByNote(noteId);
+    return sendJSON(res, refs);
+  }
+
+  if (pathname === '/api/refs' && req.method === 'POST') {
+    if (!checkAuth(req)) return sendError(res, '需要验证密码', 401);
+    const { sourceId, targetId, type } = await parseBody(req);
+    if (!sourceId || !targetId) return sendError(res, '缺少参数');
+    refOps.add(sourceId, targetId, type || 'cross');
+    return sendJSON(res, { success: true });
+  }
+
+  if (pathname === '/api/refs' && req.method === 'DELETE') {
+    if (!checkAuth(req)) return sendError(res, '需要验证密码', 401);
+    const { sourceId, targetId } = await parseBody(req);
+    if (!sourceId || !targetId) return sendError(res, '缺少参数');
+    refOps.remove(sourceId, targetId);
+    return sendJSON(res, { success: true });
+  }
+
   // --- 全局配置 ---
   if (pathname === '/api/globals' && req.method === 'GET') {
     return sendJSON(res, getGlobals());
@@ -209,7 +233,7 @@ const server = http.createServer(async (req, res) => {
     const globals = getGlobals();
     // 字符串数组合并去重，对象数组直接覆盖
     const stringArrayKeys = new Set([]);
-    const overwriteKeys = new Set(['notebooks', 'books', 'dynasties']);
+    const overwriteKeys = new Set(['notebooks', 'fieldComponents', 'cardTemplates', 'notebookTemplates']);
     for (const key of Object.keys(data)) {
       if (overwriteKeys.has(key)) {
         globals[key] = data[key];
