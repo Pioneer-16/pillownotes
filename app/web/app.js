@@ -2378,6 +2378,7 @@ function setupSettingsEvents() {
     try {
       const collectedNotes = new Map();
       let visionImagesAdded = false;
+      let visionImgMsg = null;
 
       while (true) {
         const response = await fetch(apiUrl, {
@@ -2397,6 +2398,19 @@ function setupSettingsEvents() {
         if (!response.ok) {
           const errText = await response.text().catch(() => '');
           thinkingDiv.remove();
+          if (visionImagesAdded && (response.status === 404 || errText.includes('image'))) {
+            addAiMessage('<p>当前模型不支持图片输入。请在 AI 设置中关闭「笔记图片分析」后重试。</p>', 'system');
+            visionImagesAdded = false;
+            if (visionImgMsg) {
+              const idx = messages.indexOf(visionImgMsg);
+              if (idx !== -1) messages.splice(idx, 1);
+              const hIdx = aiChatHistory.indexOf(visionImgMsg);
+              if (hIdx !== -1) aiChatHistory.splice(hIdx, 1);
+              visionImgMsg = null;
+            }
+            aiChatHistory.pop();
+            continue;
+          }
           addAiMessage(`<p>AI API 错误 (${response.status})：${errText || response.statusText}</p>`, 'system');
           aiChatHistory.pop();
           return;
@@ -2494,12 +2508,12 @@ function setupSettingsEvents() {
               if (imgParts.length >= 5) break;
             }
             if (imgParts.length > 0) {
-              const imgMsg = { role: 'user', content: [
+              visionImgMsg = { role: 'user', content: [
                 { type: 'text', text: '以下是工具查询到的笔记中包含的图片（非用户手动上传），请分析图片内容：' },
                 ...imgParts
               ] };
-              messages.push(imgMsg);
-              aiChatHistory.push(imgMsg);
+              messages.push(visionImgMsg);
+              aiChatHistory.push(visionImgMsg);
               visionImagesAdded = true;
             }
           }
