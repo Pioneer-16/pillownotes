@@ -2353,6 +2353,8 @@ function setupSettingsEvents() {
 
     addAiMessage(escapeHtml(text), 'user');
     aiInput.value = '';
+    aiInput.style.height = 'auto';
+    aiInput.style.overflowY = 'hidden';
 
     const thinkingDiv = document.createElement('div');
     thinkingDiv.className = 'ai-message ai-message-ai ai-thinking';
@@ -2375,6 +2377,7 @@ function setupSettingsEvents() {
 
     try {
       const collectedNotes = new Map();
+      let visionImagesAdded = false;
 
       while (true) {
         const response = await fetch(apiUrl, {
@@ -2463,10 +2466,44 @@ function setupSettingsEvents() {
                 if (n.id) collectedNotes.set(n.id, n);
               }
             }
-            const toolMsg = { role: 'tool', tool_call_id: tc.id, content: JSON.stringify(result) };
+            const toolMsg = { role: 'tool', tool_call_id: tc.id, content: typeof result === 'string' ? result : JSON.stringify(result) };
             messages.push(toolMsg);
             aiChatHistory.push(toolMsg);
           }
+
+          if (aiConfig.vision && !visionImagesAdded && collectedNotes.size > 0) {
+            const imgParts = [];
+            for (const note of collectedNotes.values()) {
+              for (const val of Object.values(note)) {
+                if (typeof val !== 'string') continue;
+                for (const m of val.matchAll(/!\[[^\]]*\]\(([^)]+)\)/g)) {
+                  const fullUrl = m[1].startsWith('http') ? m[1] : `${API_BASE}${m[1]}`;
+                  try {
+                    const blob = await fetch(fullUrl).then(r => r.blob());
+                    const dataUrl = await new Promise(resolve => {
+                      const reader = new FileReader();
+                      reader.onload = () => resolve(reader.result);
+                      reader.readAsDataURL(blob);
+                    });
+                    imgParts.push({ type: 'image_url', image_url: { url: dataUrl } });
+                  } catch (e) { /* 忽略 */ }
+                  if (imgParts.length >= 5) break;
+                }
+                if (imgParts.length >= 5) break;
+              }
+              if (imgParts.length >= 5) break;
+            }
+            if (imgParts.length > 0) {
+              const imgMsg = { role: 'user', content: [
+                { type: 'text', text: '以下是工具查询到的笔记中包含的图片（非用户手动上传），请分析图片内容：' },
+                ...imgParts
+              ] };
+              messages.push(imgMsg);
+              aiChatHistory.push(imgMsg);
+              visionImagesAdded = true;
+            }
+          }
+
           toolCalls = [];
           fullText = '';
           aiMsgDiv = null;
@@ -2480,75 +2517,7 @@ function setupSettingsEvents() {
         if (collectedNotes.size > 0) {
           addAiRecommendNotes([...collectedNotes.values()].slice(0, 5));
 
-          // 提取笔记中的图片，发送给视觉模型分析
-          if (aiConfig.vision) {
-            const imageUrls = [];
-            for (const note of collectedNotes.values()) {
-              for (const val of Object.values(note)) {
-                if (typeof val !== 'string') continue;
-                const imgMatches = val.matchAll(/!\[[^\]]*\]\(([^)]+)\)/g);
-                for (const m of imgMatches) imageUrls.push(m[1]);
-              }
-            }
-            if (imageUrls.length > 0) {
-              const imgContent = [{ type: 'text', text: '以下是用户笔记中包含的图片，请简要描述每张图片的内容：' }];
-              for (const url of imageUrls.slice(0, 5)) {
-                imgContent.push({ type: 'image_url', image_url: { url } });
-              }
-              const visionMsgs = [
-                { role: 'system', content: '你是枕书阁的笔记助手，用户会给你笔记中的图片，请简要描述图片内容。' },
-                { role: 'user', content: imgContent }
-              ];
-              try {
-                const imgRes = await fetch(apiUrl, {
-                  method: 'POST',
-                  headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${aiConfig.apiKey}`
-                  },
-                  body: JSON.stringify({ model: aiConfig.model || 'gpt-4o', messages: visionMsgs, stream: true })
-                });
-                if (!imgRes.ok) {
-                  const errText = await imgRes.text().catch(() => '');
-                  addAiMessage(`<p>图片分析失败（${imgRes.status}），模型可能不支持视觉功能。可在设置中关闭「笔记图片分析」。</p>`, 'system');
-                } else {
-                const imgReader = imgRes.body.getReader();
-                const imgDecoder = new TextDecoder();
-                let imgBuffer = '';
-                let imgFullText = '';
-                let imgMsgDiv = null;
-                while (true) {
-                  const { done, value } = await imgReader.read();
-                  if (done) break;
-                  imgBuffer += imgDecoder.decode(value, { stream: true });
-                  const lines = imgBuffer.split('\n');
-                  imgBuffer = lines.pop();
-                  for (const line of lines) {
-                    if (!line.startsWith('data: ')) continue;
-                    const payload = line.slice(6).trim();
-                    if (payload === '[DONE]') continue;
-                    let chunk;
-                    try { chunk = JSON.parse(payload); } catch (e) { continue; }
-                    const delta = chunk.choices?.[0]?.delta;
-                    if (delta?.content) {
-                      imgFullText += delta.content;
-                      if (!imgMsgDiv) {
-                        imgMsgDiv = document.createElement('div');
-                        imgMsgDiv.className = 'ai-message ai-message-ai';
-                        aiMessages.appendChild(imgMsgDiv);
-                      }
-                      imgMsgDiv.innerHTML = renderAiMarkdown(imgFullText);
-                      aiMessages.scrollTop = aiMessages.scrollHeight;
-                    }
-                  }
-                }
-                if (imgFullText) {
-                  aiChatHistory.push({ role: 'assistant', content: imgFullText });
-                }
-              }
-            } catch (e) { /* 忽略视觉分析失败 */ }
-            }
-          }
+
         }
         break;
       }
@@ -2565,6 +2534,11 @@ function setupSettingsEvents() {
       e.preventDefault();
       sendAiMessage();
     }
+  });
+  aiInput.addEventListener('input', () => {
+    aiInput.style.height = 'auto';
+    aiInput.style.height = Math.min(aiInput.scrollHeight, 150) + 'px';
+    aiInput.style.overflowY = aiInput.scrollHeight > 150 ? 'auto' : 'hidden';
   });
 
   // 全局点击关闭下拉菜单

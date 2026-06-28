@@ -2849,6 +2849,8 @@ pre code {
   border-radius: var(--radius);
   resize: none;
   outline: none;
+  overflow-y: hidden;
+  max-height: 150px;
   transition: border-color var(--transition);
 }
 
