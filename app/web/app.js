@@ -1905,21 +1905,28 @@ async function importData(file) {
         const existingComps = globals.fieldComponents || [];
 
         // label → existing id 映射表
-        const labelToExistingId = new Map();
-        existingComps.forEach(c => labelToExistingId.set(c.label, c.id));
+        const labelTypeToId = new Map();
+        existingComps.forEach(c => labelTypeToId.set(c.label + '|' + c.type, c.id));
 
         // 构建 imported id → existing id 的映射
         const idMap = new Map();
         for (const ic of importedComps) {
-          const existingId = labelToExistingId.get(ic.label);
+          const existingId = labelTypeToId.get(ic.label + '|' + ic.type);
           if (existingId) {
             idMap.set(ic.id, existingId);
-          } else {
-            // 新组件，直接加入
-            if (!existingComps.some(c => c.id === ic.id)) {
-              globals.fieldComponents.push(ic);
+            const existingComp = existingComps.find(c => c.id === existingId);
+            if (existingComp && ic.config) {
+              existingComp.config = { ...existingComp.config, ...ic.config };
             }
-            idMap.set(ic.id, ic.id);
+          } else {
+            const oldId = ic.id;
+            let newId = oldId;
+            if (existingComps.some(c => c.id === newId)) {
+              newId = oldId + '_' + Date.now().toString(36);
+              ic.id = newId;
+            }
+            globals.fieldComponents.push(ic);
+            idMap.set(oldId, newId);
           }
         }
 
@@ -1975,6 +1982,14 @@ async function importData(file) {
             if (!globals.notebooks.includes(nb)) {
               globals.notebooks.push(nb);
             }
+          }
+        }
+      }
+      if (importedGlobals && importedGlobals.notebookTemplates) {
+        if (!globals.notebookTemplates) globals.notebookTemplates = {};
+        for (const [nb, tplId] of Object.entries(importedGlobals.notebookTemplates)) {
+          if (!globals.notebookTemplates[nb]) {
+            globals.notebookTemplates[nb] = tplId;
           }
         }
       }

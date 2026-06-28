@@ -2447,7 +2447,7 @@ pre code {
 
 .ai-chat-resize {
   position: absolute;
-  top: 46px;
+  top: 0;
   right: -3px;
   width: 6px;
   bottom: 0;
