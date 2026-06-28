@@ -1014,13 +1014,13 @@ function editNote(index) {
         <label class="edit-label">引用笔记</label>
         <div class="edit-ref-manager" data-note-id="${note.id || ''}">
           <div class="ref-chips" id="ref-chips-${index}"></div>
-          <div class="ref-search-wrap">
-            <input type="text" class="ref-search-input" id="ref-search-${index}" placeholder="搜索笔记添加引用…" autocomplete="off">
-            <div class="ref-search-results" id="ref-results-${index}"></div>
-          </div>
           <div class="ref-type-select">
             <label><input type="radio" name="ref-type-${index}" value="cross" checked> 交叉引用</label>
             <label><input type="radio" name="ref-type-${index}" value="one-way"> 单向引用</label>
+          </div>
+          <div class="ref-search-wrap">
+            <input type="text" class="ref-search-input" id="ref-search-${index}" placeholder="搜索笔记添加引用…" autocomplete="off">
+            <div class="ref-search-results" id="ref-results-${index}"></div>
           </div>
         </div>
       </div>
