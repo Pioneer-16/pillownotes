@@ -2547,13 +2547,14 @@ function setupSettingsEvents() {
                 }
               }
             } catch (e) { /* 忽略视觉分析失败 */ }
+            }
           }
         }
         break;
       }
     } catch (error) {
       thinkingDiv.remove();
-      addAiMessage(`<p>调用 AI API 失败：${error.message}</p>', 'system`);
+      addAiMessage(`<p>调用 AI API 失败：${error.message}</p>`, 'system');
       aiChatHistory.pop();
     }
   }
