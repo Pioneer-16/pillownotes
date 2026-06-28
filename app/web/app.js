@@ -489,19 +489,22 @@ function renderNotes() {
   });
 }
 
+let loadNoteRefsVersion = 0;
+
 async function loadNoteRefs() {
-  const snapshot = [...notes];
-  await Promise.all(snapshot.map(async (note) => {
+  const ver = ++loadNoteRefsVersion;
+  const list = notes;
+  await Promise.all(list.map(async (note) => {
     if (!note?.id) return;
     try {
       const refs = await storage.getRefs(note.id);
       note._hasOutgoingRefs = refs.outgoing.length > 0;
     } catch (e) { note._hasOutgoingRefs = false; }
   }));
-  if (notes !== snapshot) return;
+  if (ver !== loadNoteRefsVersion) return;
   document.querySelectorAll('.ref-btn[data-index]').forEach(btn => {
     const idx = parseInt(btn.dataset.index);
-    btn.style.display = notes[idx]?._hasOutgoingRefs ? '' : 'none';
+    btn.style.display = list[idx]?._hasOutgoingRefs ? '' : 'none';
   });
 }
 
