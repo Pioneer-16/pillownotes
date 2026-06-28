@@ -2112,6 +2112,7 @@ function setupSettingsEvents() {
       document.getElementById('ai-api-url').value = aiConfig.apiUrl || '';
       document.getElementById('ai-api-key').value = aiConfig.apiKey || '';
       document.getElementById('ai-model').value = aiConfig.model || '';
+      document.getElementById('ai-vision-toggle').checked = !!aiConfig.vision;
     }
   });
 
@@ -2121,13 +2122,14 @@ function setupSettingsEvents() {
     const apiUrl = document.getElementById('ai-api-url').value.trim();
     const apiKey = document.getElementById('ai-api-key').value.trim();
     const model = document.getElementById('ai-model').value.trim();
+    const visionEnabled = document.getElementById('ai-vision-toggle').checked;
 
     if (!apiUrl || !apiKey) {
       showToast('请填写 API 地址和密钥');
       return;
     }
 
-    globals.aiConfig = { apiUrl, apiKey, model };
+    globals.aiConfig = { apiUrl, apiKey, model, vision: visionEnabled };
     await storage.saveGlobals(globals);
     showToast('AI 配置已保存');
     aiSettingsPanel.classList.remove('open');
@@ -2477,6 +2479,75 @@ function setupSettingsEvents() {
 
         if (collectedNotes.size > 0) {
           addAiRecommendNotes([...collectedNotes.values()].slice(0, 5));
+
+          // 提取笔记中的图片，发送给视觉模型分析
+          if (aiConfig.vision) {
+            const imageUrls = [];
+            for (const note of collectedNotes.values()) {
+              for (const val of Object.values(note)) {
+                if (typeof val !== 'string') continue;
+                const imgMatches = val.matchAll(/!\[[^\]]*\]\(([^)]+)\)/g);
+                for (const m of imgMatches) imageUrls.push(m[1]);
+              }
+            }
+            if (imageUrls.length > 0) {
+              const imgContent = [{ type: 'text', text: '以下是用户笔记中包含的图片，请简要描述每张图片的内容：' }];
+              for (const url of imageUrls.slice(0, 5)) {
+                imgContent.push({ type: 'image_url', image_url: { url } });
+              }
+              const visionMsgs = [
+                { role: 'system', content: '你是枕书阁的笔记助手，用户会给你笔记中的图片，请简要描述图片内容。' },
+                { role: 'user', content: imgContent }
+              ];
+              try {
+                const imgRes = await fetch(apiUrl, {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${aiConfig.apiKey}`
+                  },
+                  body: JSON.stringify({ model: aiConfig.model || 'gpt-4o', messages: visionMsgs, stream: true })
+                });
+                if (!imgRes.ok) {
+                  const errText = await imgRes.text().catch(() => '');
+                  addAiMessage(`<p>图片分析失败（${imgRes.status}），模型可能不支持视觉功能。可在设置中关闭「笔记图片分析」。</p>`, 'system');
+                } else {
+                const imgReader = imgRes.body.getReader();
+                const imgDecoder = new TextDecoder();
+                let imgBuffer = '';
+                let imgFullText = '';
+                let imgMsgDiv = null;
+                while (true) {
+                  const { done, value } = await imgReader.read();
+                  if (done) break;
+                  imgBuffer += imgDecoder.decode(value, { stream: true });
+                  const lines = imgBuffer.split('\n');
+                  imgBuffer = lines.pop();
+                  for (const line of lines) {
+                    if (!line.startsWith('data: ')) continue;
+                    const payload = line.slice(6).trim();
+                    if (payload === '[DONE]') continue;
+                    let chunk;
+                    try { chunk = JSON.parse(payload); } catch (e) { continue; }
+                    const delta = chunk.choices?.[0]?.delta;
+                    if (delta?.content) {
+                      imgFullText += delta.content;
+                      if (!imgMsgDiv) {
+                        imgMsgDiv = document.createElement('div');
+                        imgMsgDiv.className = 'ai-message ai-message-ai';
+                        aiMessages.appendChild(imgMsgDiv);
+                      }
+                      imgMsgDiv.innerHTML = renderAiMarkdown(imgFullText);
+                      aiMessages.scrollTop = aiMessages.scrollHeight;
+                    }
+                  }
+                }
+                if (imgFullText) {
+                  aiChatHistory.push({ role: 'assistant', content: imgFullText });
+                }
+              }
+            } catch (e) { /* 忽略视觉分析失败 */ }
+          }
         }
         break;
       }

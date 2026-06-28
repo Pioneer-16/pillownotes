@@ -2445,6 +2445,43 @@ pre code {
   padding: 6px 10px;
 }
 
+.ai-toggle {
+  display: inline-block;
+  position: relative;
+  width: 36px;
+  height: 20px;
+  cursor: pointer;
+}
+.ai-toggle input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+.ai-toggle-slider {
+  position: absolute;
+  inset: 0;
+  background: var(--color-paper-deep);
+  border-radius: 10px;
+  transition: background 0.2s;
+}
+.ai-toggle-slider::before {
+  content: "";
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  left: 2px;
+  top: 2px;
+  background: var(--color-cloud);
+  border-radius: 50%;
+  transition: transform 0.2s;
+}
+.ai-toggle input:checked + .ai-toggle-slider {
+  background: var(--color-bamboo);
+}
+.ai-toggle input:checked + .ai-toggle-slider::before {
+  transform: translateX(16px);
+}
+
 .ai-chat-messages {
   flex: 1;
   overflow-y: auto;
