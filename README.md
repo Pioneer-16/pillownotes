@@ -15,6 +15,13 @@
 - 🔒 纯本地部署 — 数据在自己电脑上，无需注册
 - 🤖 AI 助手 — 智能问答、笔记推荐、流式输出、引用查询
 
+## 📸 截图
+
+| | |
+|:---:|:---:|
+| [![主界面](docs/images/screenshot-main.png)](docs/images/screenshot-main.png) | [![笔记编辑](docs/images/screenshot-edit.png)](docs/images/screenshot-edit.png) |
+| [![引用笔记](docs/images/screenshot-refs.png)](docs/images/screenshot-refs.png) | [![模板设置](docs/images/screenshot-template.png)](docs/images/screenshot-template.png) |
+
 ## 🤖 AI 助手
 
 内置 AI 聊天助手，支持 OpenAI 兼容 API（如 MiMo、OpenAI、DeepSeek 等）。
