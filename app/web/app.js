@@ -3440,6 +3440,35 @@ function setupEvents() {
       if (currentNotebook) addNote();
     }
   });
+
+  // 图片点击放大 + 滚轮缩放
+  const lightbox = document.getElementById('image-lightbox');
+  const lightboxImg = document.getElementById('lightbox-img');
+  let lightboxScale = 1;
+
+  document.addEventListener('click', (e) => {
+    const img = e.target.closest('.note-image img');
+    if (img) {
+      lightboxImg.src = img.src;
+      lightboxScale = 1;
+      lightboxImg.style.transform = '';
+      lightbox.classList.add('open');
+      return;
+    }
+    if (e.target === lightbox || e.target === lightboxImg) {
+      lightbox.classList.remove('open');
+      lightboxImg.src = '';
+      lightboxScale = 1;
+      lightboxImg.style.transform = '';
+    }
+  });
+
+  lightbox.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    const delta = e.deltaY > 0 ? -0.15 : 0.15;
+    lightboxScale = Math.min(5, Math.max(0.2, lightboxScale + delta));
+    lightboxImg.style.transform = `scale(${lightboxScale})`;
+  });
 }
 
 // ===== 工具函数 =====

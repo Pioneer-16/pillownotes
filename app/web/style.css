@@ -2273,6 +2273,37 @@ pre code {
   max-width: 100%;
   border-radius: var(--radius);
   display: block;
+  cursor: pointer;
+  transition: transform var(--transition);
+}
+.note-image img:hover {
+  transform: scale(1.02);
+}
+
+/* 图片放大弹窗 */
+.image-lightbox {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+  cursor: zoom-out;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.25s ease, visibility 0.25s;
+}
+.image-lightbox.open {
+  opacity: 1;
+  visibility: visible;
+}
+.image-lightbox img {
+  max-width: 90vw;
+  max-height: 90vh;
+  object-fit: contain;
+  border-radius: var(--radius);
+  transition: transform 0.15s ease;
 }
 
 .edit-url-manager .tag-chips {
