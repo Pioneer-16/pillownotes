@@ -124,6 +124,21 @@ const storage = {
       method: 'DELETE',
       headers: getAuthHeaders()
     });
+  },
+
+  async getAllRefs() {
+    const res = await fetch(`${API_BASE}/api/refs/all`);
+    return await res.json();
+  },
+
+  async importRefs(refs) {
+    for (const r of refs) {
+      await fetch(`${API_BASE}/api/refs`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ sourceId: r.source_id, targetId: r.target_id, type: r.type })
+      });
+    }
   }
 };
 
@@ -1824,6 +1839,7 @@ async function deleteNotebook(name) {
 // ===== 导入导出 =====
 async function exportData() {
   const allNotes = await storage.getAllNotes();
+  const allRefs = await storage.getAllRefs();
   const globalsData = await storage.getGlobals();
   const exportObj = {
     version: 1,
@@ -1834,7 +1850,8 @@ async function exportData() {
       cardTemplates: globalsData.cardTemplates || [],
       notebookTemplates: globalsData.notebookTemplates || {}
     },
-    notes: allNotes
+    notes: allNotes,
+    refs: allRefs
   };
   const json = JSON.stringify(exportObj, null, 2);
   const blob = new Blob([json], { type: 'application/json' });
@@ -1994,6 +2011,10 @@ async function importData(file) {
         }
       }
       await storage.saveGlobals(globals);
+
+      if (data.refs && Array.isArray(data.refs)) {
+        await storage.importRefs(data.refs);
+      }
 
       await loadFiles();
       if (currentNotebook) {

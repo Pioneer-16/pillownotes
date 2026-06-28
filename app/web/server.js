@@ -199,6 +199,10 @@ const server = http.createServer(async (req, res) => {
   }
 
   // --- 引用 ---
+  if (pathname === '/api/refs/all' && req.method === 'GET') {
+    return sendJSON(res, refOps.getAll());
+  }
+
   if (pathname === '/api/refs' && req.method === 'GET') {
     const noteId = url.searchParams.get('noteId');
     if (!noteId) return sendError(res, '缺少 noteId');

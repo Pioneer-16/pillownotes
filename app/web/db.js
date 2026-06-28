@@ -298,6 +298,10 @@ const refOps = {
 
   removeAllByNote(noteId) {
     db.prepare('DELETE FROM note_references WHERE source_id = ? OR target_id = ?').run(noteId, noteId);
+  },
+
+  getAll() {
+    return db.prepare('SELECT source_id, target_id, type FROM note_references').all();
   }
 };
 
