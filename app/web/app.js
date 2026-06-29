@@ -1885,29 +1885,66 @@ async function deleteNotebook(name) {
 
 // ===== 导入导出 =====
 async function exportData() {
-  const allNotes = await storage.getAllNotes();
-  const allRefs = await storage.getAllRefs();
-  const globalsData = await storage.getGlobals();
-  const exportObj = {
-    version: 1,
-    exportedAt: new Date().toISOString(),
-    globals: {
-      notebooks: globalsData.notebooks || [],
-      fieldComponents: globalsData.fieldComponents || [],
-      cardTemplates: globalsData.cardTemplates || [],
-      notebookTemplates: globalsData.notebookTemplates || {}
-    },
-    notes: allNotes,
-    refs: allRefs
-  };
-  const json = JSON.stringify(exportObj, null, 2);
-  const blob = new Blob([json], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `枕书阁_备份_${new Date().toISOString().slice(0, 10)}.json`;
-  a.click();
-  URL.revokeObjectURL(url);
+  const btn = document.getElementById('btn-export');
+  const origTitle = btn?.title;
+  if (btn) { btn.disabled = true; btn.classList.add('loading'); btn.title = '正在导出...'; }
+
+  try {
+    const allNotes = await storage.getAllNotes();
+    const allRefs = await storage.getAllRefs();
+    const globalsData = await storage.getGlobals();
+
+    const imageUrls = new Set();
+    for (const note of allNotes) {
+      for (const val of Object.values(note)) {
+        if (typeof val !== 'string') continue;
+        for (const m of val.matchAll(/!\[[^\]]*\]\((\/api\/images\/[^)]+)\)/g)) {
+          imageUrls.add(m[1]);
+        }
+      }
+    }
+
+    const images = [];
+    const urlList = [...imageUrls];
+    for (let i = 0; i < urlList.length; i++) {
+      if (btn) btn.title = `正在导出图片 (${i + 1}/${urlList.length})...`;
+      try {
+        const resp = await fetch(`${API_BASE}${urlList[i]}`);
+        if (!resp.ok) continue;
+        const blob = await resp.blob();
+        const dataUrl = await new Promise(resolve => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result);
+          reader.readAsDataURL(blob);
+        });
+        images.push({ filename: urlList[i].split('/').pop(), data: dataUrl });
+      } catch (e) { /* skip broken image */ }
+    }
+
+    const exportObj = {
+      version: 2,
+      exportedAt: new Date().toISOString(),
+      globals: {
+        notebooks: globalsData.notebooks || [],
+        fieldComponents: globalsData.fieldComponents || [],
+        cardTemplates: globalsData.cardTemplates || [],
+        notebookTemplates: globalsData.notebookTemplates || {}
+      },
+      notes: allNotes,
+      refs: allRefs,
+      images
+    };
+    const json = JSON.stringify(exportObj, null, 2);
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `枕书阁_备份_${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  } finally {
+    if (btn) { btn.disabled = false; btn.classList.remove('loading'); btn.title = origTitle; }
+  }
 }
 
 async function importData(file) {
@@ -1956,6 +1993,43 @@ async function importData(file) {
           n.notebooks = ['未分类'];
         }
       });
+
+      // 恢复图片
+      if (data.images && data.images.length > 0) {
+        const importBtn = document.getElementById('btn-import');
+        if (importBtn) importBtn.classList.add('loading');
+        const urlMap = new Map();
+        for (let i = 0; i < data.images.length; i++) {
+          const img = data.images[i];
+          const oldUrl = `/api/images/${img.filename}`;
+          if (importBtn) importBtn.title = `正在导入图片 (${i + 1}/${data.images.length})...`;
+          try {
+            const headRes = await fetch(`${API_BASE}${oldUrl}`, { method: 'HEAD' });
+            if (headRes.ok) { urlMap.set(oldUrl, oldUrl); continue; }
+          } catch (e) { /* not exists, upload */ }
+          try {
+            const uploadRes = await fetch(`${API_BASE}/api/images`, {
+              method: 'POST',
+              headers: getAuthHeaders(),
+              body: JSON.stringify({ data: img.data, name: img.filename })
+            });
+            if (!uploadRes.ok) continue;
+            const result = await uploadRes.json();
+            if (result.url) urlMap.set(oldUrl, result.url);
+          } catch (e) { /* skip broken image */ }
+        }
+        if (importBtn) { importBtn.title = '导入数据'; importBtn.classList.remove('loading'); }
+        for (const note of importedNotes) {
+          for (const [key, val] of Object.entries(note)) {
+            if (typeof val !== 'string') continue;
+            for (const [oldUrl, newUrl] of urlMap) {
+              if (oldUrl !== newUrl && val.includes(oldUrl)) {
+                note[key] = note[key].split(oldUrl).join(newUrl);
+              }
+            }
+          }
+        }
+      }
 
       const allNotes = await storage.getAllNotes();
       const importMap = new Map(importedNotes.map(n => [n.id, n]));

@@ -304,6 +304,13 @@ mark {
   background: var(--color-bamboo-mist);
   color: var(--color-bamboo);
 }
+.topbar-btn.loading svg {
+  animation: pulse 1.2s ease-in-out infinite;
+}
+@keyframes pulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 1; }
+}
 
 /* 主题切换图标 */
 .icon-moon { display: none; }
