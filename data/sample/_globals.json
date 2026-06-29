@@ -211,6 +211,20 @@
       "label": "章节",
       "placeholder": "章节",
       "config": { "format": "第 0 章" }
+    },
+    {
+      "id": "diary_mood",
+      "type": "rating",
+      "label": "开心指数",
+      "placeholder": "",
+      "config": {}
+    },
+    {
+      "id": "pet_weight",
+      "type": "input",
+      "label": "体重",
+      "placeholder": "",
+      "config": {}
     }
   ],
   "cardTemplates": [
@@ -248,6 +262,16 @@
       "id": "tpl_calligraphy",
       "name": "书法碑帖",
       "fieldIds": ["calligraphy_name", "calligrapher", "dynasty", "script_type", "field_mqsh3e0idimh", "evaluation"]
+    },
+    {
+      "id": "tpl_diary",
+      "name": "日记",
+      "fieldIds": ["content", "field_mqseerno1c14", "diary_mood", "quote", "field_mqsh3e0idimh"]
+    },
+    {
+      "id": "tpl_pet",
+      "name": "萌宠",
+      "fieldIds": ["content", "quote", "pet_weight", "field_mqseerno1c14", "field_mqsh3e0idimh"]
     }
   ],
   "notebookTemplates": {
@@ -259,6 +283,8 @@
     "技术文档": "tpl_tech",
     "漫画绘本": "tpl_comic",
     "哲学摘录": "tpl_philosophy",
-    "书法碑帖": "tpl_calligraphy"
+    "书法碑帖": "tpl_calligraphy",
+    "日记": "tpl_diary",
+    "宠物": "tpl_pet"
   }
 }
