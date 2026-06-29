@@ -1543,7 +1543,11 @@ async function saveEdit(index) {
     if (!val) continue;
     const globalKey = `dropdown_${fieldId}`;
     if (!globals[globalKey]) globals[globalKey] = [];
-    if (!globals[globalKey].includes(val)) globals[globalKey].push(val);
+    const arr = globals[globalKey];
+    const idx = arr.indexOf(val);
+    if (idx !== -1) arr.splice(idx, 1);
+    arr.push(val);
+    if (arr.length > 10) globals[globalKey] = arr.slice(-10);
     globals[`last_${fieldId}`] = val;
   }
 
