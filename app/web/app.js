@@ -208,6 +208,53 @@ function ensureTemplateDefaults() {
   if (!globals.cardTemplates || globals.cardTemplates.length === 0) {
     globals.cardTemplates = [getDefaultTemplate()];
   }
+
+  // 补充内置模板和组件（新版本发布时自动同步给已有用户）
+  const builtInComponents = [
+    { id: 'field_mqseerno1c14', type: 'date', label: '日期', placeholder: '', config: { format: 'YYYY-MM-DD' } },
+    { id: 'field_mqsf3bog8kf5', type: 'url', label: '链接', placeholder: 'url', config: {} },
+    { id: 'field_mqsgzpfbk8lb', type: 'rating', label: '评分', placeholder: '', config: {} },
+    { id: 'field_mqsh3e0idimh', type: 'textarea', label: '图片', placeholder: '可以直接粘贴图片', config: { hasTable: true } },
+    { id: 'author', type: 'dropdown', label: '作者', placeholder: '作者', config: {} },
+    { id: 'source', type: 'input', label: '出处', placeholder: '《全唐诗》等', config: {} },
+    { id: 'analysis', type: 'textarea', label: '赏析', placeholder: '个人赏析和理解…', config: {} },
+    { id: 'rating', type: 'rating', label: '掌握程度', placeholder: '', config: {} },
+    { id: 'course_name', type: 'input', label: '课程名称', placeholder: '课程或教材名', config: {} },
+    { id: 'knowledge_point', type: 'textarea', label: '知识点', placeholder: '核心知识点…', config: { hasTable: true } },
+    { id: 'exercises', type: 'textarea', label: '练习/思考', placeholder: '练习题或思考…', config: { hasTable: true } },
+    { id: 'tech_name', type: 'input', label: '技术名称', placeholder: '技术或工具名', config: {} },
+    { id: 'version', type: 'input', label: '版本', placeholder: 'v1.0', config: {} },
+    { id: 'usage_example', type: 'textarea', label: '用法示例', placeholder: '代码示例或用法…', config: { hasTable: true } },
+    { id: 'notes', type: 'textarea', label: '注意事项', placeholder: '注意事项和踩坑记录…', config: { hasTable: true } },
+    { id: 'story_summary', type: 'textarea', label: '故事梗概', placeholder: '故事内容概要…', config: {} },
+    { id: 'school', type: 'dropdown', label: '学派', placeholder: '儒家、道家等', config: {} },
+    { id: 'translation', type: 'textarea', label: '译注', placeholder: '译文或注释…', config: { hasTable: true } },
+    { id: 'thoughts', type: 'textarea', label: '个人感悟', placeholder: '个人理解和思考…', config: { hasTable: true } },
+    { id: 'calligraphy_name', type: 'input', label: '碑帖名', placeholder: '碑帖名称', config: {} },
+    { id: 'calligrapher', type: 'dropdown', label: '书法家', placeholder: '书法家', config: {} },
+    { id: 'script_type', type: 'dropdown', label: '书体', placeholder: '楷书、行书等', config: {} },
+    { id: 'evaluation', type: 'textarea', label: '评价', placeholder: '艺术特点和个人评价…', config: {} },
+    { id: 'field_mqv0acg6lq9s', type: 'number', label: '章节', placeholder: '章节', config: { format: '第 0 章' } },
+    { id: 'diary_mood', type: 'rating', label: '开心指数', placeholder: '', config: {} },
+    { id: 'pet_weight', type: 'input', label: '体重', placeholder: '', config: {} }
+  ];
+  const builtInTemplates = [
+    { id: 'tpl_poetry', name: '诗词赏析', fieldIds: ['content', 'author', 'dynasty', 'source', 'analysis', 'rating'] },
+    { id: 'tpl_study', name: '学习笔记', fieldIds: ['content', 'course_name', 'field_mqv0acg6lq9s', 'knowledge_point', 'exercises', 'rating'] },
+    { id: 'tpl_tech', name: '技术文档', fieldIds: ['tech_name', 'version', 'content', 'usage_example', 'notes', 'field_mqsf3bog8kf5'] },
+    { id: 'tpl_comic', name: '漫画绘本', fieldIds: ['book', 'author', 'story_summary', 'evaluation'] },
+    { id: 'tpl_philosophy', name: '哲学摘录', fieldIds: ['book', 'school', 'content', 'translation', 'thoughts', 'rating'] },
+    { id: 'tpl_calligraphy', name: '书法碑帖', fieldIds: ['calligraphy_name', 'calligrapher', 'dynasty', 'script_type', 'field_mqsh3e0idimh', 'evaluation'] },
+    { id: 'tpl_diary', name: '日记', fieldIds: ['content', 'field_mqseerno1c14', 'diary_mood', 'quote', 'field_mqsh3e0idimh'] },
+    { id: 'tpl_pet', name: '萌宠', fieldIds: ['content', 'quote', 'pet_weight', 'field_mqseerno1c14', 'field_mqsh3e0idimh'] }
+  ];
+  const existingCompIds = new Set(globals.fieldComponents.map(c => c.id));
+  const missingComps = builtInComponents.filter(c => !existingCompIds.has(c.id));
+  if (missingComps.length > 0) globals.fieldComponents.push(...missingComps);
+
+  const existingTplIds = new Set((globals.cardTemplates || []).map(t => t.id));
+  const missingTpls = builtInTemplates.filter(t => !existingTplIds.has(t.id));
+  if (missingTpls.length > 0) globals.cardTemplates.push(...missingTpls);
   if (!globals.notebookTemplates) {
     globals.notebookTemplates = {};
   }
