@@ -3630,6 +3630,7 @@ function renderContent(str) {
   let inCodeBlock = false;
   let codeLines = [];
   let codeLang = '';
+  let inList = false;
 
   for (let i = 0; i < lines.length; i++) {
     const rawLine = lines[i];
@@ -3673,12 +3674,31 @@ function renderContent(str) {
     }
     const escapedTrimmed = escapeHtml(trimmed);
     if (trimmed.includes('|') && (trimmed.startsWith('|') || trimmed.match(/^\S.*\|/))) {
+      if (inList) { html += '</ul>'; inList = false; }
       if (!inTable) { inTable = true; tableLines = []; }
       const normalized = escapedTrimmed.startsWith('|') ? escapedTrimmed : '| ' + escapedTrimmed;
       tableLines.push(normalized.endsWith('|') ? normalized : normalized + ' |');
       continue;
     }
     if (inTable) { html += renderTable(tableLines); inTable = false; tableLines = []; }
+
+    // 标题
+    const headingMatch = trimmed.match(/^(#{1,3})\s+(.+)$/);
+    if (headingMatch) {
+      if (inList) { html += '</ul>'; inList = false; }
+      const level = headingMatch[1].length + 2; // # → h3, ## → h4, ### → h5
+      html += `<h${level}>${headingMatch[2].replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/\*(.+?)\*/g, '<em>$1</em>')}</h${level}>`;
+      continue;
+    }
+
+    // 无序列表
+    if (/^[-*]\s+/.test(trimmed)) {
+      if (!inList) { html += '<ul class="note-list">'; inList = true; }
+      const itemText = escapedTrimmed.replace(/^[-*]\s+/, '').replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/\*(.+?)\*/g, '<em>$1</em>');
+      html += `<li>${itemText}</li>`;
+      continue;
+    }
+    if (inList) { html += '</ul>'; inList = false; }
 
     let rendered = escapedTrimmed.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/\*(.+?)\*/g, '<em>$1</em>');
     const hasLeadingSpace = /^[\s\u3000]/.test(rawLine);
@@ -3688,6 +3708,7 @@ function renderContent(str) {
       html += `<p>${rendered}</p>`;
     }
   }
+  if (inList) html += '</ul>';
   if (inTable) html += renderTable(tableLines);
   if (inCodeBlock) html += `<pre><code class="language-${escapeHtml(codeLang)}">${escapeHtml(codeLines.join('\n'))}</code></pre>`;
   return html;

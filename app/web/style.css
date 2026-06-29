@@ -688,6 +688,24 @@ body:not(.auth-unlocked) .file-item-delete {
   text-indent: 2em;
 }
 
+.note-list {
+  list-style: disc;
+  padding-left: 2em;
+  margin: 0;
+  line-height: 1.9;
+}
+.note-list li {
+  margin-bottom: 0.2em;
+}
+.note-text h3, .note-text h4, .note-text h5 {
+  margin: 1em 0 0.4em;
+  font-family: var(--font-display);
+  color: var(--color-ink);
+}
+.note-text h3 { font-size: 20px; }
+.note-text h4 { font-size: 17px; }
+.note-text h5 { font-size: 15px; }
+
 .para-gap {
   height: 0.8em;
 }
