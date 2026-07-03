@@ -11,9 +11,11 @@
     "reading",
     "book"
   ],
-  "license": "MIT",
+  "license": "AGPL-3.0-only",
   "dependencies": {
+    "bcryptjs": "^3.0.3",
     "better-sqlite3": "^12.11.1",
-    "dotenv": "^16.4.7"
+    "dotenv": "^16.4.7",
+    "jsonwebtoken": "^9.0.3"
   }
 }

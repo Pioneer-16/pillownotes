@@ -18,6 +18,13 @@ db.pragma('foreign_keys = ON');
 
 // 初始化表结构
 db.exec(`
+  CREATE TABLE IF NOT EXISTS users (
+    id TEXT PRIMARY KEY,
+    username TEXT UNIQUE NOT NULL,
+    password_hash TEXT NOT NULL,
+    created_at TEXT DEFAULT (datetime('now'))
+  );
+
   CREATE TABLE IF NOT EXISTS notes (
     id TEXT PRIMARY KEY,
     data TEXT NOT NULL,
@@ -177,6 +184,31 @@ const noteOps = {
   },
 
   search(query) {
+    // 优先使用 FTS5 全文搜索
+    try {
+      const ftsResults = db.prepare(`
+        SELECT n.id, n.data, n.created_at, n.updated_at,
+               GROUP_CONCAT(nn.notebook) as notebooks
+        FROM notes_fts fts
+        JOIN notes n ON n.rowid = fts.rowid
+        LEFT JOIN note_notebooks nn ON n.id = nn.note_id
+        WHERE notes_fts MATCH ?
+        GROUP BY n.id
+        LIMIT 50
+      `).all(query).map(row => {
+        const note = JSON.parse(row.data);
+        note.notebooks = row.notebooks ? row.notebooks.split(',') : [];
+        return note;
+      });
+
+      if (ftsResults.length > 0) {
+        return ftsResults;
+      }
+    } catch (e) {
+      // FTS 查询失败，回退到内存搜索
+    }
+
+    // 回退：内存线性扫描
     const q = query.toLowerCase();
     const allNotes = this.getAll();
 

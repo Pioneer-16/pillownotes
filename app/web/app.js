@@ -1405,19 +1405,79 @@ function insertTable(btn) {
 
 function showTableEditor(rows, cols) {
   const editor = document.getElementById('table-editor');
-  let html = '<tr class="table-header-row">';
-  for (let c = 0; c < cols; c++) {
-    html += `<td><input type="text" placeholder="列${c + 1}" data-row="0" data-col="${c}"></td>`;
-  }
-  html += '</tr>';
-  for (let r = 1; r < rows; r++) {
-    html += '<tr>';
+  const trs = [...editor.querySelectorAll('tr')];
+  const oldRows = trs.length;
+  const oldCols = trs[0] ? trs[0].querySelectorAll('td').length : 0;
+
+  // 如果是空表格（首次打开），直接构建
+  if (oldRows === 0) {
+    let html = '<tr class="table-header-row">';
     for (let c = 0; c < cols; c++) {
-      html += `<td><input type="text" placeholder="" data-row="${r}" data-col="${c}"></td>`;
+      html += `<td><input type="text" placeholder="列${c + 1}" data-row="0" data-col="${c}"></td>`;
     }
     html += '</tr>';
+    for (let r = 1; r < rows; r++) {
+      html += '<tr>';
+      for (let c = 0; c < cols; c++) {
+        html += `<td><input type="text" placeholder="" data-row="${r}" data-col="${c}"></td>`;
+      }
+      html += '</tr>';
+    }
+    editor.innerHTML = html;
+    return;
   }
-  editor.innerHTML = html;
+
+  // 列减少：删除每行末尾多余的列
+  if (cols < oldCols) {
+    trs.forEach(tr => {
+      const tds = [...tr.querySelectorAll('td')];
+      for (let c = oldCols - 1; c >= cols; c--) {
+        tds[c].remove();
+      }
+    });
+  }
+
+  // 行减少：删除末尾多余的行
+  if (rows < oldRows) {
+    for (let r = oldRows - 1; r >= rows; r--) {
+      trs[r].remove();
+    }
+  }
+
+  // 列增加：在每行末尾添加新列
+  if (cols > oldCols) {
+    const currentTrs = [...editor.querySelectorAll('tr')];
+    currentTrs.forEach((tr, r) => {
+      for (let c = oldCols; c < cols; c++) {
+        const td = document.createElement('td');
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.placeholder = r === 0 ? `列${c + 1}` : '';
+        input.dataset.row = r;
+        input.dataset.col = c;
+        td.appendChild(input);
+        tr.appendChild(td);
+      }
+    });
+  }
+
+  // 行增加：添加新行
+  if (rows > oldRows) {
+    for (let r = oldRows; r < rows; r++) {
+      const tr = document.createElement('tr');
+      for (let c = 0; c < cols; c++) {
+        const td = document.createElement('td');
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.placeholder = '';
+        input.dataset.row = r;
+        input.dataset.col = c;
+        td.appendChild(input);
+        tr.appendChild(td);
+      }
+      editor.appendChild(tr);
+    }
+  }
 }
 
 function insertTableConfirm() {
@@ -1436,9 +1496,9 @@ function insertTableConfirm() {
     data.push(row);
   });
 
-  const header = '|' + data[0].map(v => v || '  ').join('|') + '|';
-  const separator = '|' + data[0].map(() => '--').join('|') + '|';
-  const dataRows = data.slice(1).map(row => '|' + row.map(v => v || '  ').join('|') + '|').join('\n');
+  const header = '| ' + data[0].map(v => v || '  ').join(' | ') + ' |';
+  const separator = '| ' + data[0].map(() => '--').join(' | ') + ' |';
+  const dataRows = data.slice(1).map(row => '| ' + row.map(v => v || '  ').join(' | ') + ' |').join('\n');
   const table = header + '\n' + separator + '\n' + dataRows + '\n';
 
   const textarea = tableInsertTarget;
@@ -1451,9 +1511,18 @@ function insertTableConfirm() {
   textarea.dispatchEvent(new Event('input', { bubbles: true }));
   autoResize(textarea);
 
-  document.getElementById('table-overlay').style.display = 'none';
-  tableInsertTarget = null;
-  tableInsertPos = null;
+  const overlay = document.getElementById('table-overlay');
+  const modal = overlay.querySelector('.modal');
+  modal.classList.remove('animate-scale-in');
+  modal.classList.add('animate-scale-out');
+  overlay.classList.add('animate-overlay-fade-out');
+  modal.addEventListener('animationend', () => {
+    overlay.style.display = 'none';
+    modal.classList.remove('animate-scale-out');
+    overlay.classList.remove('animate-overlay-fade-out');
+    tableInsertTarget = null;
+    tableInsertPos = null;
+  }, { once: true });
 }
 
 function insertCodeBlock(btn) {
@@ -1966,9 +2035,9 @@ async function importData(file) {
       } else if (Array.isArray(data)) {
         importedNotes = data;
       } else if (data.notebooks) {
-        for (const [name, notes] of Object.entries(data.notebooks)) {
-          if (Array.isArray(notes)) {
-            notes.forEach(n => {
+        for (const [name, notebookNotes] of Object.entries(data.notebooks)) {
+          if (Array.isArray(notebookNotes)) {
+            notebookNotes.forEach(n => {
               if (!n.notebooks) n.notebooks = [name];
               else if (!n.notebooks.includes(name)) n.notebooks.push(name);
               importedNotes.push(n);
@@ -1976,9 +2045,9 @@ async function importData(file) {
           }
         }
       } else {
-        for (const [name, notes] of Object.entries(data)) {
-          if (Array.isArray(notes)) {
-            notes.forEach(n => {
+        for (const [name, notebookNotes] of Object.entries(data)) {
+          if (Array.isArray(notebookNotes)) {
+            notebookNotes.forEach(n => {
               if (!n.notebooks) n.notebooks = [name];
               else if (!n.notebooks.includes(name)) n.notebooks.push(name);
               importedNotes.push(n);
@@ -3538,10 +3607,20 @@ function setupEvents() {
 
   document.getElementById('btn-toggle-theme').addEventListener('click', toggleTheme);
 
+  // ===== 登录/注册功能 =====
   const authOverlay = document.getElementById('auth-overlay');
-  const authInput = document.getElementById('auth-input');
-  const authError = document.getElementById('auth-error');
   const btnAuth = document.getElementById('btn-auth');
+
+  // 切换登录/注册标签
+  document.querySelectorAll('.auth-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      const tabName = tab.dataset.tab;
+      document.getElementById('login-form').style.display = tabName === 'login' ? 'block' : 'none';
+      document.getElementById('register-form').style.display = tabName === 'register' ? 'block' : 'none';
+    });
+  });
 
   btnAuth.addEventListener('click', async () => {
     if (document.body.classList.contains('auth-unlocked')) {
@@ -3550,41 +3629,96 @@ function setupEvents() {
       try {
         const checkRes = await fetch(`${API_BASE}/api/auth/check`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'X-Auth-Token': '' }
+          headers: { 'Content-Type': 'application/json', 'X-Auth-Token': authToken }
         });
         if (checkRes.ok) {
-          setAuth('');
           return;
         }
       } catch (e) {}
       authOverlay.style.display = 'flex';
-      authInput.value = '';
-      authError.style.display = 'none';
-      setTimeout(() => authInput.focus(), 100);
+      document.getElementById('login-username').value = '';
+      document.getElementById('login-password').value = '';
+      document.getElementById('login-error').style.display = 'none';
+      setTimeout(() => document.getElementById('login-username').focus(), 100);
     }
   });
 
-  document.getElementById('auth-confirm').addEventListener('click', async () => {
-    const pwd = authInput.value.trim();
-    if (!pwd) return;
+  // 登录
+  document.getElementById('login-confirm').addEventListener('click', async () => {
+    const username = document.getElementById('login-username').value.trim();
+    const password = document.getElementById('login-password').value;
+    const errorEl = document.getElementById('login-error');
+    
+    if (!username || !password) {
+      errorEl.textContent = '请输入用户名和密码';
+      errorEl.style.display = 'block';
+      return;
+    }
+    
     try {
-      const res = await fetch(`${API_BASE}/api/auth/check`, {
+      const res = await fetch(`${API_BASE}/api/auth/login`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Auth-Token': pwd }
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password })
       });
-      if (res.ok) {
-        setAuth(pwd);
+      const data = await res.json();
+      
+      if (res.ok && data.success) {
+        setAuth(data.token);
         authOverlay.style.display = 'none';
         renderNotes();
       } else {
-        authError.style.display = 'block';
+        errorEl.textContent = data.error || '登录失败';
+        errorEl.style.display = 'block';
       }
     } catch (e) {
-      authError.textContent = '连接失败';
-      authError.style.display = 'block';
+      errorEl.textContent = '连接失败';
+      errorEl.style.display = 'block';
     }
   });
 
+  // 注册
+  document.getElementById('register-confirm').addEventListener('click', async () => {
+    const username = document.getElementById('register-username').value.trim();
+    const password = document.getElementById('register-password').value;
+    const passwordConfirm = document.getElementById('register-password-confirm').value;
+    const errorEl = document.getElementById('register-error');
+    
+    if (!username || !password) {
+      errorEl.textContent = '请输入用户名和密码';
+      errorEl.style.display = 'block';
+      return;
+    }
+    
+    if (password !== passwordConfirm) {
+      errorEl.textContent = '两次输入的密码不一致';
+      errorEl.style.display = 'block';
+      return;
+    }
+    
+    try {
+      const res = await fetch(`${API_BASE}/api/auth/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password })
+      });
+      const data = await res.json();
+      
+      if (res.ok && data.success) {
+        setAuth(data.token);
+        authOverlay.style.display = 'none';
+        renderNotes();
+      } else {
+        errorEl.textContent = data.error || '注册失败';
+        errorEl.style.display = 'block';
+      }
+    } catch (e) {
+      errorEl.textContent = '连接失败';
+      errorEl.style.display = 'block';
+    }
+  });
+
+  // 取消登录
   document.getElementById('auth-cancel').addEventListener('click', () => {
     authOverlay.style.display = 'none';
   });
@@ -3593,27 +3727,39 @@ function setupEvents() {
     if (e.target === authOverlay) authOverlay.style.display = 'none';
   });
 
-  authInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') document.getElementById('auth-confirm').click();
-    if (e.key === 'Escape') authOverlay.style.display = 'none';
+  // 回车键提交
+  document.getElementById('login-password').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') document.getElementById('login-confirm').click();
+  });
+  
+  document.getElementById('register-password-confirm').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') document.getElementById('register-confirm').click();
   });
 
   // 表格插入弹窗
   const tableOverlay = document.getElementById('table-overlay');
   const tableRowsEl = document.getElementById('table-rows');
   const tableColsEl = document.getElementById('table-cols');
+  const tableModal = tableOverlay.querySelector('.modal');
 
-  document.getElementById('table-confirm').addEventListener('click', insertTableConfirm);
-  document.getElementById('table-cancel').addEventListener('click', () => {
-    tableOverlay.style.display = 'none';
-    tableInsertTarget = null;
-    tableInsertPos = null;
-  });
-  tableOverlay.addEventListener('click', (e) => {
-    if (e.target === tableOverlay) {
+  function closeTableEditor() {
+    tableModal.classList.remove('animate-scale-in');
+    tableModal.classList.add('animate-scale-out');
+    tableOverlay.classList.add('animate-overlay-fade-out');
+    tableModal.addEventListener('animationend', () => {
       tableOverlay.style.display = 'none';
+      tableModal.classList.remove('animate-scale-out');
+      tableOverlay.classList.remove('animate-overlay-fade-out');
       tableInsertTarget = null;
       tableInsertPos = null;
+    }, { once: true });
+  }
+
+  document.getElementById('table-confirm').addEventListener('click', insertTableConfirm);
+  document.getElementById('table-cancel').addEventListener('click', closeTableEditor);
+  tableOverlay.addEventListener('click', (e) => {
+    if (e.target === tableOverlay) {
+      closeTableEditor();
     }
   });
 
@@ -3803,6 +3949,7 @@ function renderQuote(str) {
   let inCodeBlock = false;
   let codeLines = [];
   let codeLang = '';
+  let inList = false;
 
   for (let i = 0; i < lines.length; i++) {
     const rawLine = lines[i];
@@ -3830,6 +3977,7 @@ function renderQuote(str) {
     }
 
     if (trimmed === '') {
+      if (inList) { html += '</ul>'; inList = false; }
       if (inTable) { html += renderTable(tableLines); inTable = false; tableLines = []; }
       html += '<div class="quote-gap"></div>';
       continue;
@@ -3838,6 +3986,7 @@ function renderQuote(str) {
     // 图片语法 ![alt](url)
     const imgMatch = trimmed.match(/^!\[([^\]]*)\]\(([^)]+)\)$/);
     if (imgMatch) {
+      if (inList) { html += '</ul>'; inList = false; }
       if (inTable) { html += renderTable(tableLines); inTable = false; tableLines = []; }
       html += `<p class="note-image"><img src="${escapeHtml(imgMatch[2])}" alt="${escapeHtml(imgMatch[1])}" loading="lazy"></p>`;
       continue;
@@ -3853,6 +4002,24 @@ function renderQuote(str) {
 
     if (inTable) { html += renderTable(tableLines); inTable = false; tableLines = []; }
 
+    // 标题
+    const headingMatch = trimmed.match(/^(#{1,3})\s+(.+)$/);
+    if (headingMatch) {
+      if (inList) { html += '</ul>'; inList = false; }
+      const level = headingMatch[1].length + 2;
+      html += `<h${level}>${headingMatch[2].replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/\*(.+?)\*/g, '<em>$1</em>')}</h${level}>`;
+      continue;
+    }
+
+    // 无序列表
+    if (/^[-*]\s+/.test(trimmed)) {
+      if (!inList) { html += '<ul class="note-list">'; inList = true; }
+      const itemText = escapedTrimmed.replace(/^[-*]\s+/, '').replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/\*(.+?)\*/g, '<em>$1</em>');
+      html += `<li>${itemText}</li>`;
+      continue;
+    }
+    if (inList) { html += '</ul>'; inList = false; }
+
     let rendered = escapedTrimmed
       .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
       .replace(/\*(.+?)\*/g, '<em>$1</em>');
@@ -3865,6 +4032,7 @@ function renderQuote(str) {
     }
   }
 
+  if (inList) html += '</ul>';
   if (inTable) { html += renderTable(tableLines); }
   if (inCodeBlock) html += `<pre><code class="language-${escapeHtml(codeLang)}">${escapeHtml(codeLines.join('\n'))}</code></pre>`;
   return html;
@@ -3897,16 +4065,19 @@ function formatNumberField(val, format) {
   if (!val || !format) return val;
   const numMatch = val.match(/-?\d+\.?\d*/);
   if (!numMatch) return val;
-  const num = numMatch[0];
+  const rawNum = numMatch[0];
+  const isNegative = rawNum.startsWith('-');
+  const absNum = isNegative ? rawNum.slice(1) : rawNum;
 
   // Excel风格：0=补零，#=不补零，其余原样
-  // 找到 0 和 # 组成的占位符组
   const result = format.replace(/(0+|#+)/g, (match) => {
+    let padded;
     if (match[0] === '0') {
-      return num.padStart(match.length, '0');
+      padded = absNum.padStart(match.length, '0');
     } else {
-      return num;
+      padded = absNum;
     }
+    return isNegative ? '-' + padded : padded;
   });
   return result;
 }
@@ -3930,12 +4101,12 @@ function formatDateField(val, format) {
 
   // 先替换长占位符，再替换短占位符，避免误匹配
   return format
-    .replace(/YYYY/gi, YYYY)
-    .replace(/YY/gi, YY)
+    .replace(/YYYY/g, YYYY)
+    .replace(/YY/g, YY)
     .replace(/MM/g, MM)
-    .replace(/DD/gi, DD)
+    .replace(/DD/g, DD)
     .replace(/M/g, M)
-    .replace(/D/gi, D);
+    .replace(/D/g, D);
 }
 
 function parseNumField(val) {

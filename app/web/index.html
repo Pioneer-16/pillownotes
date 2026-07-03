@@ -158,15 +158,37 @@
     </div>
   </div>
 
-  <!-- 密码输入弹窗 -->
+  <!-- 登录/注册弹窗 -->
   <div class="modal-overlay" id="auth-overlay" style="display:none">
     <div class="modal animate-scale-in">
-      <p class="modal-text">输入访问密码解锁编辑</p>
-      <input type="password" class="auth-input" id="auth-input" placeholder="密码" autocomplete="off">
-      <p class="auth-error" id="auth-error" style="display:none">密码错误</p>
-      <div class="modal-actions">
-        <button class="modal-btn modal-btn-cancel" id="auth-cancel">取消</button>
-        <button class="modal-btn modal-btn-confirm" id="auth-confirm">解锁</button>
+      <div class="auth-tabs">
+        <button class="auth-tab active" data-tab="login">登录</button>
+        <button class="auth-tab" data-tab="register">注册</button>
+      </div>
+      
+      <!-- 登录表单 -->
+      <div id="login-form" class="auth-form">
+        <p class="modal-text">登录到枕书阁</p>
+        <input type="text" class="auth-input" id="login-username" placeholder="用户名" autocomplete="username">
+        <input type="password" class="auth-input" id="login-password" placeholder="密码" autocomplete="current-password">
+        <p class="auth-error" id="login-error" style="display:none"></p>
+        <div class="modal-actions">
+          <button class="modal-btn modal-btn-cancel" id="auth-cancel">取消</button>
+          <button class="modal-btn modal-btn-confirm" id="login-confirm">登录</button>
+        </div>
+      </div>
+      
+      <!-- 注册表单 -->
+      <div id="register-form" class="auth-form" style="display:none">
+        <p class="modal-text">注册新账号</p>
+        <input type="text" class="auth-input" id="register-username" placeholder="用户名（2-20个字符）" autocomplete="username">
+        <input type="password" class="auth-input" id="register-password" placeholder="密码（至少6位）" autocomplete="new-password">
+        <input type="password" class="auth-input" id="register-password-confirm" placeholder="确认密码" autocomplete="new-password">
+        <p class="auth-error" id="register-error" style="display:none"></p>
+        <div class="modal-actions">
+          <button class="modal-btn modal-btn-cancel" id="auth-cancel">取消</button>
+          <button class="modal-btn modal-btn-confirm" id="register-confirm">注册</button>
+        </div>
       </div>
     </div>
   </div>

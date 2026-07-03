@@ -113,7 +113,15 @@ html, body {
 }
 @keyframes scale-in {
   from { opacity: 0; transform: scale(0.95); }
-  to { opacity: 1; transform: scale(1); }
+  to   { opacity: 1; transform: scale(1); }
+}
+@keyframes scale-out {
+  from { opacity: 1; transform: scale(1); }
+  to   { opacity: 0; transform: scale(0.95); }
+}
+@keyframes overlay-fade-out {
+  from { opacity: 1; }
+  to   { opacity: 0; }
 }
 @keyframes float-gentle {
   0%, 100% { transform: translateY(0); }
@@ -130,6 +138,8 @@ html, body {
 
 .animate-fade-up { animation: fade-up 0.5s cubic-bezier(0.22, 1, 0.36, 1) forwards; }
 .animate-scale-in { animation: scale-in 0.35s cubic-bezier(0.22, 1, 0.36, 1) forwards; }
+.animate-scale-out { animation: scale-out 0.25s cubic-bezier(0.22, 1, 0.36, 1) forwards; }
+.animate-overlay-fade-out { animation: overlay-fade-out 0.25s ease-out forwards; }
 .animate-float { animation: float-gentle 4s ease-in-out infinite; }
 .animate-fade-in { animation: fade-in 0.3s ease-out forwards; }
 .animate-note-enter { animation: note-enter 0.5s cubic-bezier(0.22, 1, 0.36, 1) forwards; }
@@ -352,6 +362,47 @@ mark {
   font-size: 13px;
   text-align: center;
   margin-bottom: 4px;
+}
+
+/* 登录/注册标签页 */
+.auth-tabs {
+  display: flex;
+  gap: 0;
+  margin-bottom: 16px;
+  border-bottom: 1px solid var(--color-paper-deep);
+}
+
+.auth-tab {
+  flex: 1;
+  padding: 8px 16px;
+  background: none;
+  border: none;
+  font-size: 14px;
+  font-family: var(--font-body);
+  color: var(--color-ink-soft);
+  cursor: pointer;
+  transition: all var(--transition);
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+}
+
+.auth-tab:hover {
+  color: var(--color-ink);
+}
+
+.auth-tab.active {
+  color: var(--color-bamboo);
+  border-bottom-color: var(--color-bamboo);
+}
+
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.auth-form .modal-text {
+  margin-bottom: 8px;
 }
 
 /* 只读模式隐藏编辑元素 */
@@ -746,6 +797,15 @@ body:not(.auth-unlocked) .file-item-delete {
 .note-quote-content p {
   margin: 0;
 }
+
+.note-quote-content h3, .note-quote-content h4, .note-quote-content h5 {
+  margin: 0.8em 0 0.3em;
+  font-family: var(--font-display);
+  color: var(--color-ink);
+}
+.note-quote-content h3 { font-size: 18px; }
+.note-quote-content h4 { font-size: 15px; }
+.note-quote-content h5 { font-size: 14px; }
 
 .note-quote-content p.indent {
   text-indent: 2em;
