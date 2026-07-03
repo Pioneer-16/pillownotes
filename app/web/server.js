@@ -87,9 +87,6 @@ function checkAuth(req) {
   const token = req.headers['x-auth-token'];
   if (!token) return false;
   
-  // 兼容旧的密码模式
-  if (token === AUTH_PASSWORD) return true;
-  
   // 验证 JWT
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
@@ -103,7 +100,7 @@ function checkAuth(req) {
 
 // 用户操作
 const userOps = {
-  register(username, password) {
+  async register(username, password) {
     // 检查用户名是否已存在
     const existing = db.prepare('SELECT id FROM users WHERE username = ?').get(username);
     if (existing) {
@@ -112,14 +109,14 @@ const userOps = {
     
     // 创建用户
     const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
-    const passwordHash = bcrypt.hashSync(password, 10);
+    const passwordHash = await bcrypt.hash(password, 10);
     
     db.prepare('INSERT INTO users (id, username, password_hash) VALUES (?, ?, ?)').run(id, username, passwordHash);
     
     return { id, username };
   },
   
-  login(username, password) {
+  async login(username, password) {
     // 查找用户
     const user = db.prepare('SELECT id, username, password_hash FROM users WHERE username = ?').get(username);
     if (!user) {
@@ -127,7 +124,7 @@ const userOps = {
     }
     
     // 验证密码
-    if (!bcrypt.compareSync(password, user.password_hash)) {
+    if (!await bcrypt.compare(password, user.password_hash)) {
       throw new Error('用户名或密码错误');
     }
     
@@ -149,7 +146,10 @@ const server = http.createServer(async (req, res) => {
   const pathname = url.pathname;
 
   // CORS
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  const origin = req.headers.origin;
+  if (origin && (origin.startsWith('http://localhost') || origin.startsWith('http://127.0.0.1'))) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+  }
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Auth-Token');
   if (req.method === 'OPTIONS') { res.writeHead(204); res.end(); return; }
@@ -170,7 +170,7 @@ const server = http.createServer(async (req, res) => {
         return sendError(res, '密码长度不能少于6个字符');
       }
       
-      const user = userOps.register(username, password);
+      const user = await userOps.register(username, password);
       const token = userOps.generateToken(user);
       return sendJSON(res, { success: true, token, username: user.username });
     } catch (e) {
@@ -185,7 +185,7 @@ const server = http.createServer(async (req, res) => {
         return sendError(res, '用户名和密码不能为空');
       }
       
-      const user = userOps.login(username, password);
+      const user = await userOps.login(username, password);
       const token = userOps.generateToken(user);
       return sendJSON(res, { success: true, token, username: user.username });
     } catch (e) {
@@ -239,12 +239,6 @@ const server = http.createServer(async (req, res) => {
     const name = decodeURIComponent(pathname.slice('/api/notebooks/'.length));
     notebookOps.delete(name);
     return sendJSON(res, { success: true });
-  }
-
-  // --- 认证 ---
-  if (pathname === '/api/auth/check' && req.method === 'POST') {
-    if (checkAuth(req)) return sendJSON(res, { success: true });
-    return sendError(res, '密码错误', 401);
   }
 
   // --- 笔记 ---

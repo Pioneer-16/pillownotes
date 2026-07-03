@@ -6,7 +6,7 @@ const API_BASE = window.location.origin;
 // ===== 存储 API =====
 const storage = {
   async getNotebooks() {
-    const res = await fetch(`${API_BASE}/api/notebooks`);
+    const res = await fetch(`${API_BASE}/api/notebooks`, { headers: getAuthHeaders() });
     return await res.json();
   },
 
@@ -14,12 +14,12 @@ const storage = {
     const url = notebook
       ? `${API_BASE}/api/notes?notebook=${encodeURIComponent(notebook)}`
       : `${API_BASE}/api/notes`;
-    const res = await fetch(url);
+    const res = await fetch(url, { headers: getAuthHeaders() });
     return await res.json();
   },
 
   async getAllNotes() {
-    const res = await fetch(`${API_BASE}/api/notes`);
+    const res = await fetch(`${API_BASE}/api/notes`, { headers: getAuthHeaders() });
     return await res.json();
   },
 
@@ -64,7 +64,7 @@ const storage = {
   },
 
   async getGlobals() {
-    const res = await fetch(`${API_BASE}/api/globals`);
+    const res = await fetch(`${API_BASE}/api/globals`, { headers: getAuthHeaders() });
     return await res.json();
   },
 
@@ -77,7 +77,7 @@ const storage = {
   },
 
   async searchNotes(q) {
-    const res = await fetch(`${API_BASE}/api/notes/search?q=${encodeURIComponent(q)}`);
+    const res = await fetch(`${API_BASE}/api/notes/search?q=${encodeURIComponent(q)}`, { headers: getAuthHeaders() });
     return await res.json();
   },
 
@@ -93,12 +93,12 @@ const storage = {
     for (const [k, v] of Object.entries(filters)) {
       if (v) params.set(k, v);
     }
-    const res = await fetch(`${API_BASE}/api/notes/filter?${params}`);
+    const res = await fetch(`${API_BASE}/api/notes/filter?${params}`, { headers: getAuthHeaders() });
     return await res.json();
   },
 
   async getRefs(noteId) {
-    const res = await fetch(`${API_BASE}/api/refs?noteId=${encodeURIComponent(noteId)}`);
+    const res = await fetch(`${API_BASE}/api/refs?noteId=${encodeURIComponent(noteId)}`, { headers: getAuthHeaders() });
     return await res.json();
   },
 
@@ -127,7 +127,7 @@ const storage = {
   },
 
   async getAllRefs() {
-    const res = await fetch(`${API_BASE}/api/refs/all`);
+    const res = await fetch(`${API_BASE}/api/refs/all`, { headers: getAuthHeaders() });
     return await res.json();
   },
 
@@ -3718,8 +3718,11 @@ function setupEvents() {
     }
   });
 
-  // 取消登录
+  // 取消登录/注册
   document.getElementById('auth-cancel').addEventListener('click', () => {
+    authOverlay.style.display = 'none';
+  });
+  document.getElementById('register-cancel').addEventListener('click', () => {
     authOverlay.style.display = 'none';
   });
 
@@ -3728,10 +3731,18 @@ function setupEvents() {
   });
 
   // 回车键提交
+  document.getElementById('login-username').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') document.getElementById('login-confirm').click();
+  });
   document.getElementById('login-password').addEventListener('keydown', (e) => {
     if (e.key === 'Enter') document.getElementById('login-confirm').click();
   });
-  
+  document.getElementById('register-username').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') document.getElementById('register-confirm').click();
+  });
+  document.getElementById('register-password').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') document.getElementById('register-confirm').click();
+  });
   document.getElementById('register-password-confirm').addEventListener('keydown', (e) => {
     if (e.key === 'Enter') document.getElementById('register-confirm').click();
   });
