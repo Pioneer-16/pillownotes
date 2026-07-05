@@ -555,6 +555,18 @@ async function loadFiles() {
     }
     return nb.source !== 'group';
   });
+
+  // 群组模式下按保存的顺序排序
+  if (currentView === 'group' && currentGroupId) {
+    const savedOrder = globals[`groupOrder_${currentGroupId}`];
+    if (savedOrder && savedOrder.length > 0) {
+      filtered.sort((a, b) => {
+        const ia = savedOrder.indexOf(a.name);
+        const ib = savedOrder.indexOf(b.name);
+        return (ia === -1 ? 999 : ia) - (ib === -1 ? 999 : ib);
+      });
+    }
+  }
   fileList.innerHTML = filtered.map(nb => {
     const isGroup = nb.source === 'group';
     const isReadonly = nb.readonly;
@@ -665,18 +677,22 @@ async function exitGroup() {
 // ===== 拖拽排序 =====
 function setupDragSort() {
   let dragItem = null;
+  const items = fileList.querySelectorAll('.file-item[draggable]');
+  console.log('[Drag] setupDragSort called, found', items.length, 'draggable items');
 
-  fileList.querySelectorAll('.file-item[draggable]').forEach(item => {
+  items.forEach(item => {
     item.addEventListener('dragstart', (e) => {
       dragItem = item;
       item.classList.add('dragging');
       e.dataTransfer.effectAllowed = 'move';
+      console.log('[Drag] Start:', item.dataset.name);
     });
 
     item.addEventListener('dragend', () => {
       item.classList.remove('dragging');
       dragItem = null;
       document.querySelectorAll('.file-item.drag-over').forEach(el => el.classList.remove('drag-over'));
+      console.log('[Drag] End, saving order...');
       saveFileOrder();
     });
 
@@ -699,6 +715,7 @@ function setupDragSort() {
         const items = [...fileList.querySelectorAll('.file-item[draggable]')];
         const fromIndex = items.indexOf(dragItem);
         const toIndex = items.indexOf(item);
+        console.log('[Drag] Drop from', fromIndex, 'to', toIndex);
         if (fromIndex < toIndex) {
           item.after(dragItem);
         } else {
@@ -710,13 +727,17 @@ function setupDragSort() {
 }
 
 async function saveFileOrder() {
-  // 群组模式下不保存顺序到个人 globals
-  if (currentView === 'group') return;
   const items = [...fileList.querySelectorAll('.file-item[draggable]')];
   const order = items.map(item => item.dataset.name);
-  const data = globals;
-  data.notebooks = order;
-  await storage.saveGlobals(data);
+  console.log('[Drag] Saving order:', order);
+  if (currentView === 'group' && currentGroupId) {
+    // 群组笔记本顺序单独存储
+    globals[`groupOrder_${currentGroupId}`] = order;
+  } else {
+    globals.notebooks = order;
+  }
+  await storage.saveGlobals(globals);
+  console.log('[Drag] Order saved');
 }
 
 // ===== 打开笔记本 =====
