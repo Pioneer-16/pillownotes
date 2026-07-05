@@ -2415,21 +2415,23 @@ async function importData(file) {
         }
       }
 
-      // 更新全局笔记本列表
-      if (importedGlobals && importedGlobals.notebooks) {
-        for (const nb of importedGlobals.notebooks) {
-          if (!globals.notebooks) globals.notebooks = [];
-          if (!globals.notebooks.includes(nb)) {
-            globals.notebooks.push(nb);
-          }
-        }
-      }
-      for (const note of importedNotes) {
-        if (note.notebooks) {
-          for (const nb of note.notebooks) {
+      // 更新全局笔记本列表（仅个人模式）
+      if (!groupId) {
+        if (importedGlobals && importedGlobals.notebooks) {
+          for (const nb of importedGlobals.notebooks) {
             if (!globals.notebooks) globals.notebooks = [];
             if (!globals.notebooks.includes(nb)) {
               globals.notebooks.push(nb);
+            }
+          }
+        }
+        for (const note of importedNotes) {
+          if (note.notebooks) {
+            for (const nb of note.notebooks) {
+              if (!globals.notebooks) globals.notebooks = [];
+              if (!globals.notebooks.includes(nb)) {
+                globals.notebooks.push(nb);
+              }
             }
           }
         }
