@@ -1160,6 +1160,7 @@ body:not(.auth-unlocked) .file-item-delete {
   flex: 1 1 0;
   min-width: 0;
   align-items: center;
+  scrollbar-gutter: stable;
 }
 
 .notes-content {
