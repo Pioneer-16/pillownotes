@@ -578,42 +578,57 @@ function updateGroupViewIndicator() {
 }
 
 async function enterGroup(groupId, groupName) {
-  currentView = 'group';
-  currentGroupId = groupId;
-  currentGroupName = groupName;
-  // 清空当前笔记内容
-  currentNotebook = null;
-  notes = [];
-  notesView.style.display = 'none';
-  placeholder.style.display = 'flex';
-  fileTitle.textContent = '';
-  // 弹窗淡出
-  const overlay = document.getElementById('group-overlay');
-  if (overlay) {
-    overlay.classList.add('hiding');
-    const hideOverlay = () => {
-      overlay.style.display = 'none';
-      overlay.classList.remove('hiding');
+  console.log('[EnterGroup] Starting:', groupId, groupName);
+  try {
+    currentView = 'group';
+    currentGroupId = groupId;
+    currentGroupName = groupName;
+    // 清空当前笔记内容
+    currentNotebook = null;
+    notes = [];
+    notesView.style.display = 'none';
+    placeholder.style.display = 'flex';
+    fileTitle.textContent = '';
+    // 弹窗淡出
+    const overlay = document.getElementById('group-overlay');
+    if (overlay) {
+      overlay.classList.add('hiding');
+      const hideOverlay = () => {
+        overlay.style.display = 'none';
+        overlay.classList.remove('hiding');
+      };
+      setTimeout(hideOverlay, 300);
+      overlay.addEventListener('animationend', hideOverlay, { once: true });
+    }
+    // 侧边栏过渡：淡出 → 重载 → 淡入
+    fileList.classList.add('sidebar-fade-out');
+    let done = false;
+    const loadAndOpen = async () => {
+      if (done) return;
+      done = true;
+      fileList.classList.remove('sidebar-fade-out');
+      console.log('[EnterGroup] Loading files...');
+      await loadFiles();
+      console.log('[EnterGroup] Files loaded');
+      fileList.classList.add('sidebar-fade-in');
+      setTimeout(() => fileList.classList.remove('sidebar-fade-in'), 300);
+      // 自动打开第一个群组笔记本
+      const firstItem = fileList.querySelector('.file-item');
+      console.log('[EnterGroup] First item:', firstItem?.dataset.name);
+      if (firstItem) {
+        openNotebook(firstItem.dataset.name);
+      } else {
+        // 群组没有笔记本，显示占位符
+        notesView.style.display = 'none';
+        placeholder.style.display = 'flex';
+        fileTitle.textContent = currentGroupName || '群组';
+      }
     };
-    setTimeout(hideOverlay, 300);
-    overlay.addEventListener('animationend', hideOverlay, { once: true });
+    setTimeout(loadAndOpen, 250);
+    fileList.addEventListener('animationend', loadAndOpen, { once: true });
+  } catch (e) {
+    console.error('[EnterGroup] Error:', e);
   }
-  // 侧边栏过渡：淡出 → 重载 → 淡入
-  fileList.classList.add('sidebar-fade-out');
-  let done = false;
-  const loadAndOpen = async () => {
-    if (done) return;
-    done = true;
-    fileList.classList.remove('sidebar-fade-out');
-    await loadFiles();
-    fileList.classList.add('sidebar-fade-in');
-    setTimeout(() => fileList.classList.remove('sidebar-fade-in'), 300);
-    // 自动打开第一个群组笔记本
-    const firstItem = fileList.querySelector('.file-item');
-    if (firstItem) openNotebook(firstItem.dataset.name);
-  };
-  setTimeout(loadAndOpen, 250);
-  fileList.addEventListener('animationend', loadAndOpen, { once: true });
 }
 
 async function exitGroup() {
@@ -3912,7 +3927,11 @@ function setupEvents() {
       groupList.querySelectorAll('.btn-enter-group').forEach(btn => {
         btn.addEventListener('click', (e) => {
           e.stopPropagation();
-          enterGroup(btn.dataset.id, btn.dataset.name);
+          e.preventDefault();
+          const gid = btn.dataset.id;
+          const gname = btn.dataset.name;
+          console.log('[EnterGroup] Clicked:', gid, gname);
+          enterGroup(gid, gname);
         });
       });
 
