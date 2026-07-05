@@ -6,7 +6,7 @@ const path = require('path');
 const zlib = require('zlib');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const { noteOps, notebookOps, refOps, groupOps, db } = require('./db');
+const { noteOps, notebookOps, refOps, groupOps, db, getGroupUserId } = require('./db');
 
 const PORT = process.env.PORT || 3000;
 const DATA_DIR = path.resolve(__dirname, '../../data');
@@ -469,11 +469,11 @@ const server = http.createServer(async (req, res) => {
     const userGroups = groupOps.getByUser(userId);
     for (const group of userGroups) {
       const groupNotebooks = groupOps.getNotebooks(group.id);
+      const groupUserId = getGroupUserId(group.id);
       for (const nb of groupNotebooks) {
-        const creatorId = group.created_by;
         result.push({
           name: nb,
-          count: noteOps.countByNotebook(nb, creatorId),
+          count: noteOps.countByNotebook(nb, groupUserId),
           source: 'group',
           groupName: group.name,
           groupId: group.id,
@@ -504,26 +504,14 @@ const server = http.createServer(async (req, res) => {
   // --- 笔记 ---
   if (pathname === '/api/notes' && req.method === 'GET') {
     const notebook = url.searchParams.get('notebook');
+    const groupId = url.searchParams.get('group');
+    const effectiveUserId = groupId ? getGroupUserId(groupId) : userId;
+
     let notes;
     if (notebook) {
-      // 先查个人笔记本
-      notes = noteOps.getByNotebook(notebook, userId);
-      // 如果个人没有，查群组共享笔记本
-      if (notes.length === 0) {
-        const userGroups = groupOps.getByUser(userId);
-        for (const group of userGroups) {
-          const groupNotebooks = groupOps.getNotebooks(group.id);
-          if (groupNotebooks.includes(notebook)) {
-            const creatorId = group.created_by;
-            notes = noteOps.getByNotebook(notebook, creatorId);
-            const isReadonly = group.member_role !== 'admin';
-            notes = notes.map(n => ({ ...n, _groupReadonly: isReadonly, _groupName: group.name }));
-            break;
-          }
-        }
-      }
+      notes = noteOps.getByNotebook(notebook, effectiveUserId);
     } else {
-      notes = noteOps.getAll(userId);
+      notes = noteOps.getAll(effectiveUserId);
     }
     return sendJSON(req, res, notes);
   }
@@ -531,7 +519,9 @@ const server = http.createServer(async (req, res) => {
   if (pathname === '/api/notes/search' && req.method === 'GET') {
     const q = (url.searchParams.get('q') || '').trim();
     if (!q) return sendJSON(req, res, []);
-    const results = noteOps.search(q, userId);
+    const groupId = url.searchParams.get('group');
+    const effectiveUserId = groupId ? getGroupUserId(groupId) : userId;
+    const results = noteOps.search(q, effectiveUserId);
     return sendJSON(req, res, results);
   }
 
@@ -540,21 +530,26 @@ const server = http.createServer(async (req, res) => {
     for (const [key, value] of url.searchParams) {
       if (value) filters[key] = value;
     }
-    const results = noteOps.filter(filters, userId);
+    const groupId = url.searchParams.get('group');
+    const effectiveUserId = groupId ? getGroupUserId(groupId) : userId;
+    const results = noteOps.filter(filters, effectiveUserId);
     return sendJSON(req, res, results);
   }
 
   if (pathname === '/api/notes' && req.method === 'POST') {
     try {
-      const { notes } = await parseBody(req);
+      const body = await parseBody(req);
+      const notes = body.notes;
+      const groupId = body.groupId;
+      const effectiveUserId = groupId ? getGroupUserId(groupId) : userId;
       if (!Array.isArray(notes)) return sendError(req, res, '无效数据');
       for (const note of notes) {
         if (!note.id) continue;
         const existing = noteOps.getById(note.id);
         if (existing) {
-          noteOps.update(note, userId);
+          noteOps.update(note, effectiveUserId);
         } else {
-          noteOps.create(note, userId);
+          noteOps.create(note, effectiveUserId);
         }
       }
       return sendJSON(req, res, { success: true });
@@ -567,11 +562,13 @@ const server = http.createServer(async (req, res) => {
     try {
       const note = await parseBody(req);
       if (!note.id) return sendError(req, res, '无效数据');
+      const groupId = note.groupId || url.searchParams.get('group');
+      const effectiveUserId = groupId ? getGroupUserId(groupId) : userId;
       const existing = noteOps.getById(note.id);
       if (existing) {
-        noteOps.update(note, userId);
+        noteOps.update(note, effectiveUserId);
       } else {
-        noteOps.create(note, userId);
+        noteOps.create(note, effectiveUserId);
       }
       return sendJSON(req, res, { success: true });
     } catch (e) {
@@ -583,7 +580,9 @@ const server = http.createServer(async (req, res) => {
     try {
       const note = await parseBody(req);
       if (!note.id) return sendError(req, res, '无效数据');
-      noteOps.create(note, userId);
+      const groupId = note.groupId || url.searchParams.get('group');
+      const effectiveUserId = groupId ? getGroupUserId(groupId) : userId;
+      noteOps.create(note, effectiveUserId);
       return sendJSON(req, res, { success: true });
     } catch (e) {
       return sendError(req, res, '请求数据格式错误', 400);
@@ -593,7 +592,9 @@ const server = http.createServer(async (req, res) => {
   if (pathname.startsWith('/api/notes/') && req.method === 'DELETE') {
     const id = decodeURIComponent(pathname.slice('/api/notes/'.length));
     if (!id) return sendError(req, res, '无效 ID');
-    noteOps.delete(id, userId);
+    const groupId = url.searchParams.get('group');
+    const effectiveUserId = groupId ? getGroupUserId(groupId) : userId;
+    noteOps.delete(id, effectiveUserId);
     return sendJSON(req, res, { success: true });
   }
 

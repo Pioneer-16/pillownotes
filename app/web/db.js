@@ -110,6 +110,11 @@ function migrate() {
 
 migrate();
 
+// 群组虚拟用户ID
+function getGroupUserId(groupId) {
+  return `group_${groupId}`;
+}
+
 function extractContent(noteData) {
   const parts = [];
   for (const key of Object.keys(noteData)) {
@@ -436,4 +441,4 @@ const groupOps = {
   }
 };
 
-module.exports = { db, noteOps, notebookOps, refOps, groupOps };
+module.exports = { db, noteOps, notebookOps, refOps, groupOps, getGroupUserId };

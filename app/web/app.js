@@ -12,11 +12,12 @@ const storage = {
     return await res.json();
   },
 
-  async getNotes(notebook) {
-    const url = notebook
+  async getNotes(notebook, groupId) {
+    let url = notebook
       ? `${API_BASE}/api/notes?notebook=${encodeURIComponent(notebook)}`
       : `${API_BASE}/api/notes`;
-    
+    if (groupId) url += `${url.includes('?') ? '&' : '?'}group=${groupId}`;
+
     let lastError;
     for (let i = 0; i < 3; i++) {
       try {
@@ -30,32 +31,34 @@ const storage = {
     throw lastError;
   },
 
-  async getAllNotes() {
-    const res = await fetch(`${API_BASE}/api/notes`, { headers: getAuthHeaders() });
+  async getAllNotes(groupId) {
+    let url = `${API_BASE}/api/notes`;
+    if (groupId) url += `?group=${groupId}`;
+    const res = await fetch(url, { headers: getAuthHeaders() });
     return await res.json();
   },
 
-  async saveAllNotes(notes) {
+  async saveAllNotes(notes, groupId) {
     await fetch(`${API_BASE}/api/notes`, {
       method: 'POST',
       headers: getAuthHeaders(),
-      body: JSON.stringify({ notes })
+      body: JSON.stringify({ notes, groupId })
     });
   },
 
-  async createNote(note) {
+  async createNote(note, groupId) {
     await fetch(`${API_BASE}/api/notes/${encodeURIComponent(note.id)}`, {
       method: 'POST',
       headers: getAuthHeaders(),
-      body: JSON.stringify(note)
+      body: JSON.stringify({ ...note, groupId })
     });
   },
 
-  async updateNote(note) {
+  async updateNote(note, groupId) {
     await fetch(`${API_BASE}/api/notes/${encodeURIComponent(note.id)}`, {
       method: 'PUT',
       headers: getAuthHeaders(),
-      body: JSON.stringify(note)
+      body: JSON.stringify({ ...note, groupId })
     });
   },
 
@@ -88,23 +91,28 @@ const storage = {
     });
   },
 
-  async searchNotes(q) {
-    const res = await fetch(`${API_BASE}/api/notes/search?q=${encodeURIComponent(q)}`, { headers: getAuthHeaders() });
+  async searchNotes(q, groupId) {
+    let url = `${API_BASE}/api/notes/search?q=${encodeURIComponent(q)}`;
+    if (groupId) url += `&group=${groupId}`;
+    const res = await fetch(url, { headers: getAuthHeaders() });
     return await res.json();
   },
 
-  async deleteNote(id) {
-    await fetch(`${API_BASE}/api/notes/${encodeURIComponent(id)}`, {
+  async deleteNote(id, groupId) {
+    let url = `${API_BASE}/api/notes/${encodeURIComponent(id)}`;
+    if (groupId) url += `?group=${groupId}`;
+    await fetch(url, {
       method: 'DELETE',
       headers: getAuthHeaders()
     });
   },
 
-  async filterNotes(filters) {
+  async filterNotes(filters, groupId) {
     const params = new URLSearchParams();
     for (const [k, v] of Object.entries(filters)) {
       if (v) params.set(k, v);
     }
+    if (groupId) params.set('group', groupId);
     const res = await fetch(`${API_BASE}/api/notes/filter?${params}`, { headers: getAuthHeaders() });
     return await res.json();
   },
@@ -241,6 +249,11 @@ let originalNotes = null;
 let currentView = 'personal';  // 'personal' | 'group'
 let currentGroupId = null;
 let currentGroupName = null;
+
+// 获取当前群组ID（群组模式下）
+function getActiveGroupId() {
+  return currentView === 'group' ? currentGroupId : null;
+}
 
 // ===== 模板数据层 =====
 function getActiveTemplate() {
@@ -659,7 +672,7 @@ async function saveFileOrder() {
 async function openNotebook(name) {
   currentNotebook = name;
   try {
-    notes = await storage.getNotes(name);
+    notes = await storage.getNotes(name, getActiveGroupId());
   } catch (e) {
     console.error('加载笔记失败:', e);
     notes = [];
@@ -908,7 +921,7 @@ async function exitSearch() {
   originalNotes = null;
   document.getElementById('filter-tags').style.display = 'none';
   if (currentNotebook) {
-    notes = await storage.getNotes(currentNotebook);
+    notes = await storage.getNotes(currentNotebook, getActiveGroupId());
     fileTitle.textContent = currentNotebook;
     renderNotes();
   } else {
@@ -1781,7 +1794,7 @@ async function saveEdit(index) {
   const note = notes[index];
 
   if (!hasContent) {
-    await storage.deleteNote(note.id);
+    await storage.deleteNote(note.id, getActiveGroupId());
   } else {
     const updated = { id: note.id, ...fieldValues, notebooks, updatedAt: new Date().toISOString() };
     for (const key of Object.keys(note)) {
@@ -1790,7 +1803,7 @@ async function saveEdit(index) {
       }
     }
     if (note.createdAt) updated.createdAt = note.createdAt;
-    await storage.updateNote(updated);
+    await storage.updateNote(updated, getActiveGroupId());
   }
 
   // 更新全局选项（下拉字段的历史数据）
@@ -1819,7 +1832,7 @@ async function saveEdit(index) {
 
   await storage.saveGlobals(globals);
 
-  notes = await storage.getNotes(currentNotebook);
+  notes = await storage.getNotes(currentNotebook, getActiveGroupId());
   originalNotes = null;
   if (Object.keys(activeFilters).length > 0) {
     applyFilters();
@@ -1854,8 +1867,8 @@ async function cancelEdit(index) {
     return val !== undefined && val !== null && val !== '';
   });
   if (!hasContent) {
-    await storage.deleteNote(note.id);
-    notes = await storage.getNotes(currentNotebook);
+    await storage.deleteNote(note.id, getActiveGroupId());
+    notes = await storage.getNotes(currentNotebook, getActiveGroupId());
   }
   originalNotes = null;
   if (Object.keys(activeFilters).length > 0) {
@@ -1870,8 +1883,8 @@ async function deleteNote(index) {
   const ok = await showModal('确定删除这条笔记吗？');
   if (!ok) return;
   const note = notes[index];
-  await storage.deleteNote(note.id);
-  notes = await storage.getNotes(currentNotebook);
+  await storage.deleteNote(note.id, getActiveGroupId());
+  notes = await storage.getNotes(currentNotebook, getActiveGroupId());
   originalNotes = null;
   if (Object.keys(activeFilters).length > 0) {
     applyFilters();
@@ -1894,8 +1907,8 @@ async function addNote() {
   for (const fieldId of template.fieldIds) {
     if (newNote[fieldId] === undefined) newNote[fieldId] = '';
   }
-  await storage.createNote(newNote);
-  notes = await storage.getNotes(currentNotebook);
+  await storage.createNote(newNote, getActiveGroupId());
+  notes = await storage.getNotes(currentNotebook, getActiveGroupId());
   originalNotes = null;
   if (Object.keys(activeFilters).length > 0) {
     applyFilters();
@@ -2139,7 +2152,7 @@ async function deleteNotebook(name) {
     notesView.style.display = 'none';
     placeholder.style.display = 'flex';
   } else if (currentNotebook) {
-    notes = await storage.getNotes(currentNotebook);
+    notes = await storage.getNotes(currentNotebook, getActiveGroupId());
     renderNotes();
   }
   await loadFiles();
@@ -2159,7 +2172,7 @@ async function exportData() {
       const groupNotebooks = allNotebooks.filter(nb => nb.source === 'group' && nb.groupId === currentGroupId);
       allNotes = [];
       for (const nb of groupNotebooks) {
-        const nbNotes = await storage.getNotes(nb.name);
+        const nbNotes = await storage.getNotes(nb.name, currentGroupId);
         allNotes.push(...nbNotes);
       }
       exportFilename = `${currentGroupName}_备份_${new Date().toISOString().slice(0, 10)}.json`;
@@ -2322,7 +2335,8 @@ async function importData(file) {
         }
       }
 
-      const allNotes = await storage.getAllNotes();
+      const groupId = getActiveGroupId();
+      const allNotes = await storage.getAllNotes(groupId);
       const importMap = new Map(importedNotes.map(n => [n.id, n]));
       const merged = allNotes.map(n => importMap.get(n.id) || n);
       for (const n of importedNotes) {
@@ -2370,13 +2384,13 @@ async function importData(file) {
             }
           }
           // 重新保存笔记（字段 key 已映射）
-          const allNotes2 = await storage.getAllNotes();
+          const allNotes2 = await storage.getAllNotes(groupId);
           const importMap2 = new Map(importedNotes.map(n => [n.id, n]));
           const merged2 = allNotes2.map(n => importMap2.get(n.id) || n);
           for (const n of importedNotes) {
             if (!merged2.some(m => m.id === n.id)) merged2.push(n);
           }
-          await storage.saveAllNotes(merged2);
+          await storage.saveAllNotes(merged2, groupId);
         }
 
         // 合并模板，按 name 匹配
@@ -2430,7 +2444,7 @@ async function importData(file) {
 
       await loadFiles();
       if (currentNotebook) {
-        notes = await storage.getNotes(currentNotebook);
+        notes = await storage.getNotes(currentNotebook, groupId);
       } else {
         notes = allNotes;
       }
@@ -2725,17 +2739,18 @@ function setupSettingsEvents() {
 
   async function executeAiTool(name, args) {
     try {
+      const groupId = getActiveGroupId();
       switch (name) {
         case 'search_notes':
-          return slimNotes(await storage.searchNotes(args.query || ''));
+          return slimNotes(await storage.searchNotes(args.query || '', groupId));
         case 'get_notes_by_notebook':
-          return slimNotes(await storage.getNotes(args.notebook));
+          return slimNotes(await storage.getNotes(args.notebook, groupId));
         case 'list_notebooks':
           return await storage.getNotebooks();
         case 'filter_notes':
-          return slimNotes(await storage.filterNotes(args));
+          return slimNotes(await storage.filterNotes(args, groupId));
         case 'get_all_notes':
-          return slimNotes(await storage.getAllNotes());
+          return slimNotes(await storage.getAllNotes(groupId));
         case 'get_note_refs': {
           const refs = await storage.getRefs(args.noteId);
           const allRefs = [...refs.outgoing, ...refs.incoming];
