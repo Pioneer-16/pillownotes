@@ -4066,8 +4066,14 @@ function setupEvents() {
         errorEl.style.display = 'none';
         document.querySelectorAll('.group-tabs .auth-tab').forEach(t => t.classList.remove('active'));
         document.querySelector('.group-tabs .auth-tab[data-tab="my-groups"]').classList.add('active');
-        document.querySelectorAll('.group-tab-content').forEach(c => c.style.display = 'none');
-        document.getElementById('my-groups').style.display = 'block';
+        document.querySelectorAll('.group-tab-content').forEach(c => {
+          c.style.display = 'none';
+          c.classList.remove('active');
+        });
+        const myGroups = document.getElementById('my-groups');
+        myGroups.style.display = 'block';
+        myGroups.offsetHeight; // 强制重排
+        myGroups.classList.add('active');
         await loadMyGroups();
       } else {
         errorEl.textContent = result.error || '创建失败';
@@ -4096,8 +4102,14 @@ function setupEvents() {
         errorEl.style.display = 'none';
         document.querySelectorAll('.group-tabs .auth-tab').forEach(t => t.classList.remove('active'));
         document.querySelector('.group-tabs .auth-tab[data-tab="my-groups"]').classList.add('active');
-        document.querySelectorAll('.group-tab-content').forEach(c => c.style.display = 'none');
-        document.getElementById('my-groups').style.display = 'block';
+        document.querySelectorAll('.group-tab-content').forEach(c => {
+          c.style.display = 'none';
+          c.classList.remove('active');
+        });
+        const myGroups = document.getElementById('my-groups');
+        myGroups.style.display = 'block';
+        myGroups.offsetHeight; // 强制重排
+        myGroups.classList.add('active');
         await loadMyGroups();
         await loadFiles();
       } else {
