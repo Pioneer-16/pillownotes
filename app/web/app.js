@@ -2272,9 +2272,15 @@ async function importData(file) {
       });
 
       // 群组模式：将导入笔记分配到当前群组笔记本
-      if (currentView === 'group') {
-        const targetNotebook = currentNotebook ||
+      if (currentView === 'group' && currentGroupId) {
+        let targetNotebook = currentNotebook ||
           allNotebooks.find(nb => nb.source === 'group' && nb.groupId === currentGroupId)?.name;
+        // 如果群组没有笔记本，从导入数据中取第一个笔记本名并自动创建
+        if (!targetNotebook && importedNotes.length > 0) {
+          const firstNb = importedNotes[0].notebooks?.[0];
+          targetNotebook = firstNb && firstNb !== '未分类' ? firstNb : '导入笔记';
+          await storage.addGroupNotebook(currentGroupId, targetNotebook);
+        }
         if (targetNotebook) {
           importedNotes.forEach(n => {
             n.notebooks = [targetNotebook];
