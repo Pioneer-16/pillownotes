@@ -557,6 +557,12 @@ async function enterGroup(groupId, groupName) {
   currentView = 'group';
   currentGroupId = groupId;
   currentGroupName = groupName;
+  // 清空当前笔记内容
+  currentNotebook = null;
+  notes = [];
+  notesView.style.display = 'none';
+  placeholder.style.display = 'flex';
+  fileTitle.textContent = '';
   // 弹窗淡出
   const overlay = document.getElementById('group-overlay');
   if (overlay) {
@@ -2266,10 +2272,14 @@ async function importData(file) {
       });
 
       // 群组模式：将导入笔记分配到当前群组笔记本
-      if (currentView === 'group' && currentNotebook) {
-        importedNotes.forEach(n => {
-          n.notebooks = [currentNotebook];
-        });
+      if (currentView === 'group') {
+        const targetNotebook = currentNotebook ||
+          allNotebooks.find(nb => nb.source === 'group' && nb.groupId === currentGroupId)?.name;
+        if (targetNotebook) {
+          importedNotes.forEach(n => {
+            n.notebooks = [targetNotebook];
+          });
+        }
       }
 
       // 恢复图片
