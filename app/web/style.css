@@ -1177,8 +1177,15 @@ body:not(.auth-unlocked) .file-item-delete {
   overflow: hidden;
 }
 .notes-columns-wrapper .notes-list {
-  flex: 0 1 800px;
+  flex: 0 1 806px;
   min-width: 0;
+}
+.notes-columns-wrapper .notes-list:has(+ .ref-notes-list) {
+  flex: 0 1 800px;
+  scrollbar-width: none;
+}
+.notes-columns-wrapper .notes-list:has(+ .ref-notes-list)::-webkit-scrollbar {
+  display: none;
 }
 .notes-columns-wrapper .ref-notes-list {
   flex: 0 1 0;
