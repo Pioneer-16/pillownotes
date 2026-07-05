@@ -1196,7 +1196,7 @@ body:not(.auth-unlocked) .file-item-delete {
   animation: ref-slide-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 .notes-columns-wrapper .ref-notes-list.closing {
-  animation: ref-slide-out 0.25s ease forwards;
+  animation: ref-slide-out 0.15s ease forwards;
   border-left: none;
 }
 
@@ -1207,7 +1207,6 @@ body:not(.auth-unlocked) .file-item-delete {
 }
 @keyframes ref-slide-out {
   0%   { flex-basis: 800px; opacity: 1; }
-  20%  { flex-basis: 640px; opacity: 0; }
   100% { flex-basis: 0; opacity: 0; }
 }
 

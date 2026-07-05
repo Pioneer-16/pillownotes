@@ -2152,7 +2152,7 @@ function closeRefPanel() {
     el.remove();
   }
   el.addEventListener('animationend', cleanup, { once: true });
-  setTimeout(cleanup, 400);
+  setTimeout(cleanup, 200);
   currentRefNoteIndex = -1;
 }
 
