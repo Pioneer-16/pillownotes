@@ -661,6 +661,8 @@ function setupDragSort() {
 }
 
 async function saveFileOrder() {
+  // 群组模式下不保存顺序到个人 globals
+  if (currentView === 'group') return;
   const items = [...fileList.querySelectorAll('.file-item[draggable]')];
   const order = items.map(item => item.dataset.name);
   const data = globals;
@@ -866,7 +868,7 @@ function setupSearch() {
 }
 
 async function doSearch(q) {
-  const results = await storage.searchNotes(q);
+  const results = await storage.searchNotes(q, getActiveGroupId());
   searchMode = true;
   placeholder.style.display = 'none';
   notesView.style.display = 'flex';
@@ -1963,7 +1965,7 @@ async function loadEditRefs(noteId, index) {
     const q = searchInput.value.trim();
     if (!q) { resultsEl.innerHTML = ''; resultsEl.style.display = 'none'; return; }
     searchTimer = setTimeout(async () => {
-      const found = await storage.searchNotes(q);
+      const found = await storage.searchNotes(q, getActiveGroupId());
       const filtered = found.filter(n => n.id !== noteId && !uniqueMap.has(n.id));
       if (filtered.length === 0) { resultsEl.innerHTML = ''; resultsEl.style.display = 'none'; return; }
       resultsEl.style.display = 'block';
