@@ -155,8 +155,14 @@ const noteOps = {
     });
   },
 
-  getById(id) {
-    const row = db.prepare('SELECT n.data FROM notes n WHERE n.id = ?').get(id);
+  getById(id, userId) {
+    let sql = 'SELECT n.data FROM notes n WHERE n.id = ?';
+    const params = [id];
+    if (userId) {
+      sql += ' AND n.user_id = ?';
+      params.push(userId);
+    }
+    const row = db.prepare(sql).get(...params);
     return row ? JSON.parse(row.data) : null;
   },
 
@@ -306,6 +312,7 @@ const notebookOps = {
 
   delete(name, userId) {
     db.prepare('DELETE FROM notebooks WHERE name = ? AND user_id = ?').run(name, userId);
+    // 删除仅属于此笔记本且属于此用户的笔记
     db.prepare(`
       DELETE FROM notes WHERE id IN (
         SELECT nn.note_id FROM note_notebooks nn
@@ -315,12 +322,21 @@ const notebookOps = {
         )
       ) AND user_id = ?
     `).run(name, name, userId);
-    db.prepare('DELETE FROM note_notebooks WHERE notebook = ?').run(name);
+    // 只删除属于当前用户的笔记的笔记本关联
+    db.prepare(`
+      DELETE FROM note_notebooks WHERE notebook = ? AND note_id IN (
+        SELECT id FROM notes WHERE user_id = ?
+      )
+    `).run(name, userId);
   },
 
   rename(oldName, newName, userId) {
     db.prepare('UPDATE notebooks SET name = ? WHERE name = ? AND user_id = ?').run(newName, oldName, userId);
-    db.prepare('UPDATE note_notebooks SET notebook = ? WHERE notebook = ?').run(newName, oldName);
+    db.prepare(`
+      UPDATE note_notebooks SET notebook = ? WHERE notebook = ? AND note_id IN (
+        SELECT id FROM notes WHERE user_id = ?
+      )
+    `).run(newName, oldName, userId);
   }
 };
 

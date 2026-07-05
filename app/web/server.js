@@ -545,7 +545,7 @@ const server = http.createServer(async (req, res) => {
       if (!Array.isArray(notes)) return sendError(req, res, '无效数据');
       for (const note of notes) {
         if (!note.id) continue;
-        const existing = noteOps.getById(note.id);
+        const existing = noteOps.getById(note.id, effectiveUserId);
         if (existing) {
           noteOps.update(note, effectiveUserId);
         } else {
@@ -564,7 +564,7 @@ const server = http.createServer(async (req, res) => {
       if (!note.id) return sendError(req, res, '无效数据');
       const groupId = note.groupId || url.searchParams.get('group');
       const effectiveUserId = groupId ? getGroupUserId(groupId) : userId;
-      const existing = noteOps.getById(note.id);
+      const existing = noteOps.getById(note.id, effectiveUserId);
       if (existing) {
         noteOps.update(note, effectiveUserId);
       } else {
