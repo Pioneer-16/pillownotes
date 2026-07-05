@@ -495,19 +495,19 @@ mark {
 
 /* 群组详情视图切换动画 */
 .group-list-view.slide-out-left {
-  animation: slide-out-left 0.25s ease forwards;
+  animation: slide-out-left 0.15s ease forwards;
 }
 
 .group-detail-view.slide-in-right {
-  animation: slide-in-right 0.25s ease forwards;
+  animation: slide-in-right 0.15s ease forwards;
 }
 
 .group-list-view.slide-in-left {
-  animation: slide-in-left 0.25s ease forwards;
+  animation: slide-in-left 0.15s ease forwards;
 }
 
 .group-detail-view.slide-out-right {
-  animation: slide-out-right 0.25s ease forwards;
+  animation: slide-out-right 0.15s ease forwards;
 }
 
 @keyframes slide-out-left {

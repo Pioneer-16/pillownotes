@@ -3758,9 +3758,9 @@ function setupEvents() {
       groupDetailView.style.display = 'none';
       groupListView.style.display = 'block';
       groupListView.classList.add('slide-in-left');
-      setTimeout(() => groupListView.classList.remove('slide-in-left'), 300);
+      setTimeout(() => groupListView.classList.remove('slide-in-left'), 200);
     };
-    setTimeout(reveal, 300);
+    setTimeout(reveal, 200);
     groupDetailView.addEventListener('animationend', reveal, { once: true });
     groupBack.classList.add('hidden');
     groupModalTitle.textContent = '群组管理';
@@ -3786,9 +3786,9 @@ function setupEvents() {
       groupListView.style.display = 'none';
       groupDetailView.style.display = 'block';
       groupDetailView.classList.add('slide-in-right');
-      setTimeout(() => groupDetailView.classList.remove('slide-in-right'), 300);
+      setTimeout(() => groupDetailView.classList.remove('slide-in-right'), 200);
     };
-    setTimeout(reveal, 300);
+    setTimeout(reveal, 200);
     groupListView.addEventListener('animationend', reveal, { once: true });
     groupBack.classList.remove('hidden');
   }
