@@ -589,9 +589,9 @@ async function enterGroup(groupId, groupName) {
     notesView.style.display = 'none';
     placeholder.style.display = 'flex';
     fileTitle.textContent = '';
-    // 弹窗淡出
+    // 弹窗淡出（仅当弹窗可见时）
     const overlay = document.getElementById('group-overlay');
-    if (overlay) {
+    if (overlay && overlay.style.display !== 'none') {
       overlay.classList.add('hiding');
       const hideOverlay = () => {
         overlay.style.display = 'none';
