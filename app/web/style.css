@@ -495,7 +495,19 @@ mark {
 
 /* 群组弹窗固定尺寸 */
 #group-overlay .modal {
-  min-height: 400px;
+  min-height: 480px;
+}
+
+/* 群组列表滚动 */
+#group-list {
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+/* 群组详情滚动 */
+.group-detail-content {
+  max-height: 400px;
+  overflow-y: auto;
 }
 
 /* 群组详情视图切换动画 */
