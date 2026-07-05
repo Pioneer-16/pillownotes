@@ -536,12 +536,17 @@ async function loadFiles() {
   if (currentView !== 'group') {
     const personalNames = notebooks.filter(nb => nb.source !== 'group').map(nb => nb.name);
     if (!globals.notebooks) globals.notebooks = [];
+    const oldOrder = globals.notebooks.join(',');
     // 添加数据库中有但 globals 中没有的
     for (const name of personalNames) {
       if (!globals.notebooks.includes(name)) globals.notebooks.push(name);
     }
     // 移除数据库中已删除的
     globals.notebooks = globals.notebooks.filter(n => personalNames.includes(n));
+    // 如果有变化，持久化
+    if (globals.notebooks.join(',') !== oldOrder) {
+      await storage.saveGlobals(globals);
+    }
   }
 
   const filtered = notebooks.filter(nb => {
@@ -2152,7 +2157,7 @@ function closeRefPanel() {
     el.remove();
   }
   el.addEventListener('animationend', cleanup, { once: true });
-  setTimeout(cleanup, 200);
+  setTimeout(cleanup, 400);
   currentRefNoteIndex = -1;
 }
 
