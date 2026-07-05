@@ -493,6 +493,11 @@ mark {
   background: var(--color-bamboo-light);
 }
 
+/* 群组弹窗固定尺寸 */
+#group-overlay .modal {
+  min-height: 400px;
+}
+
 /* 群组详情视图切换动画 */
 #group-list-view.slide-out-left {
   animation: slide-out-left 0.15s ease forwards;

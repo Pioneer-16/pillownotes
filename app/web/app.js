@@ -3747,27 +3747,8 @@ function setupEvents() {
     }, { once: true });
   }
 
-  // 弹窗高度过渡动画
-  const groupModal = document.querySelector('#group-overlay .modal');
-  function animateModalHeight(newContent) {
-    const oldHeight = groupModal.offsetHeight;
-    newContent.style.display = 'block';
-    const newHeight = groupModal.scrollHeight;
-    newContent.style.display = '';
-    groupModal.style.height = oldHeight + 'px';
-    groupModal.style.transition = 'none';
-    groupModal.offsetHeight; // 强制重排
-    groupModal.style.transition = 'height 0.2s ease';
-    groupModal.style.height = newHeight + 'px';
-    setTimeout(() => {
-      groupModal.style.height = '';
-      groupModal.style.transition = '';
-    }, 250);
-  }
-
   function showGroupListView() {
     // 详情向右滑出，列表从左滑入
-    animateModalHeight(groupListView);
     groupDetailView.classList.add('slide-out-right');
     let done = false;
     const reveal = () => {
@@ -3796,7 +3777,6 @@ function setupEvents() {
 
   function showGroupDetailView() {
     // 列表向左滑出，详情从右滑入
-    animateModalHeight(groupDetailView);
     groupListView.classList.add('slide-out-left');
     let done = false;
     const reveal = () => {
