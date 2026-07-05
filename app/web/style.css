@@ -1160,7 +1160,6 @@ body:not(.auth-unlocked) .file-item-delete {
   flex: 1 1 0;
   min-width: 0;
   align-items: center;
-  scrollbar-gutter: stable;
 }
 
 .notes-content {
@@ -1180,12 +1179,6 @@ body:not(.auth-unlocked) .file-item-delete {
 .notes-columns-wrapper .notes-list {
   flex: 0 1 800px;
   min-width: 0;
-}
-.notes-columns-wrapper .notes-list:has(+ .ref-notes-list) {
-  scrollbar-width: none;
-}
-.notes-columns-wrapper .notes-list:has(+ .ref-notes-list)::-webkit-scrollbar {
-  display: none;
 }
 .notes-columns-wrapper .ref-notes-list {
   flex: 0 1 0;
