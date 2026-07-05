@@ -531,6 +531,19 @@ function toggleTheme() {
 async function loadFiles() {
   const notebooks = await storage.getNotebooks();
   allNotebooks = notebooks;
+
+  // 同步 globals.notebooks（仅个人模式）
+  if (currentView !== 'group') {
+    const personalNames = notebooks.filter(nb => nb.source !== 'group').map(nb => nb.name);
+    if (!globals.notebooks) globals.notebooks = [];
+    // 添加数据库中有但 globals 中没有的
+    for (const name of personalNames) {
+      if (!globals.notebooks.includes(name)) globals.notebooks.push(name);
+    }
+    // 移除数据库中已删除的
+    globals.notebooks = globals.notebooks.filter(n => personalNames.includes(n));
+  }
+
   const filtered = notebooks.filter(nb => {
     if (currentView === 'group') {
       return nb.source === 'group' && nb.groupId === currentGroupId;
