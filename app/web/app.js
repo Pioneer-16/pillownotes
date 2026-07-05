@@ -3750,15 +3750,18 @@ function setupEvents() {
   function showGroupListView() {
     // 详情向右滑出，列表从左滑入
     groupDetailView.classList.add('slide-out-right');
-    groupDetailView.addEventListener('animationend', () => {
+    let done = false;
+    const reveal = () => {
+      if (done) return;
+      done = true;
       groupDetailView.classList.remove('slide-out-right');
       groupDetailView.style.display = 'none';
       groupListView.style.display = 'block';
       groupListView.classList.add('slide-in-left');
-      groupListView.addEventListener('animationend', () => {
-        groupListView.classList.remove('slide-in-left');
-      }, { once: true });
-    }, { once: true });
+      setTimeout(() => groupListView.classList.remove('slide-in-left'), 300);
+    };
+    setTimeout(reveal, 300);
+    groupDetailView.addEventListener('animationend', reveal, { once: true });
     groupBack.classList.add('hidden');
     groupModalTitle.textContent = '群组管理';
     // 激活第一个 Tab 内容的动画
@@ -3775,15 +3778,18 @@ function setupEvents() {
   function showGroupDetailView() {
     // 列表向左滑出，详情从右滑入
     groupListView.classList.add('slide-out-left');
-    groupListView.addEventListener('animationend', () => {
+    let done = false;
+    const reveal = () => {
+      if (done) return;
+      done = true;
       groupListView.classList.remove('slide-out-left');
       groupListView.style.display = 'none';
       groupDetailView.style.display = 'block';
       groupDetailView.classList.add('slide-in-right');
-      groupDetailView.addEventListener('animationend', () => {
-        groupDetailView.classList.remove('slide-in-right');
-      }, { once: true });
-    }, { once: true });
+      setTimeout(() => groupDetailView.classList.remove('slide-in-right'), 300);
+    };
+    setTimeout(reveal, 300);
+    groupListView.addEventListener('animationend', reveal, { once: true });
     groupBack.classList.remove('hidden');
   }
 

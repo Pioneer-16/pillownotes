@@ -2091,12 +2091,16 @@ input[type="checkbox"] {
 }
 
 .modal-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
   background: none;
   border: none;
   color: var(--color-ink-faint);
   cursor: pointer;
-  padding: 4px;
-  border-radius: 4px;
+  border-radius: 6px;
   transition: all var(--transition);
 }
 .modal-close:hover {
