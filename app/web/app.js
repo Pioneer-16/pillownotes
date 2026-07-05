@@ -530,7 +530,7 @@ async function loadFiles() {
     const isGroup = nb.source === 'group';
     const isReadonly = nb.readonly;
     return `
-    <li class="file-item ${nb.name === currentNotebook ? 'active' : ''} ${isGroup ? 'file-item-group' : ''}" data-name="${escapeHtml(nb.name)}" data-source="${nb.source || 'personal'}" draggable="${!isGroup}">
+    <li class="file-item ${nb.name === currentNotebook ? 'active' : ''} ${isGroup ? 'file-item-group' : ''}" data-name="${escapeHtml(nb.name)}" data-source="${nb.source || 'personal'}" draggable="true">
       <span class="file-item-drag">
         ${isGroup
           ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>'
@@ -2143,9 +2143,13 @@ function createNotebook() {
 async function deleteNotebook(name) {
   const ok = await showModal(`确定删除笔记本「${name}」吗？此操作不可恢复。`);
   if (!ok) return;
-  await storage.deleteNotebook(name);
-  globals.notebooks = (globals.notebooks || []).filter(n => n !== name);
-  await storage.saveGlobals(globals);
+  if (currentView === 'group' && currentGroupId) {
+    await storage.removeGroupNotebook(currentGroupId, name);
+  } else {
+    await storage.deleteNotebook(name);
+    globals.notebooks = (globals.notebooks || []).filter(n => n !== name);
+    await storage.saveGlobals(globals);
+  }
   if (currentNotebook === name) {
     currentNotebook = null;
     notes = [];
