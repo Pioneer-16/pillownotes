@@ -591,24 +591,29 @@ async function enterGroup(groupId, groupName) {
   const overlay = document.getElementById('group-overlay');
   if (overlay) {
     overlay.classList.add('hiding');
-    overlay.addEventListener('animationend', () => {
+    const hideOverlay = () => {
       overlay.style.display = 'none';
       overlay.classList.remove('hiding');
-    }, { once: true });
+    };
+    setTimeout(hideOverlay, 300);
+    overlay.addEventListener('animationend', hideOverlay, { once: true });
   }
   // 侧边栏过渡：淡出 → 重载 → 淡入
   fileList.classList.add('sidebar-fade-out');
-  fileList.addEventListener('animationend', async () => {
+  let done = false;
+  const loadAndOpen = async () => {
+    if (done) return;
+    done = true;
     fileList.classList.remove('sidebar-fade-out');
     await loadFiles();
     fileList.classList.add('sidebar-fade-in');
-    fileList.addEventListener('animationend', () => {
-      fileList.classList.remove('sidebar-fade-in');
-    }, { once: true });
+    setTimeout(() => fileList.classList.remove('sidebar-fade-in'), 300);
     // 自动打开第一个群组笔记本
     const firstItem = fileList.querySelector('.file-item');
     if (firstItem) openNotebook(firstItem.dataset.name);
-  }, { once: true });
+  };
+  setTimeout(loadAndOpen, 250);
+  fileList.addEventListener('animationend', loadAndOpen, { once: true });
 }
 
 async function exitGroup() {
