@@ -105,6 +105,35 @@
 
       <!-- 左侧：笔记内容区 -->
       <section class="content-area" id="content-area">
+        <!-- 未登录时显示 -->
+        <div class="auth-page" id="auth-page" style="display:none">
+          <div class="auth-page-card">
+            <h2 class="auth-page-title">枕 书 阁</h2>
+            <p class="auth-page-subtitle">登录以开始使用</p>
+            <div class="auth-tabs">
+              <button class="auth-tab active" data-tab="login">登录</button>
+              <button class="auth-tab" data-tab="register">注册</button>
+            </div>
+            
+            <!-- 登录表单 -->
+            <div id="login-form" class="auth-form">
+              <input type="text" class="auth-input" id="login-username" placeholder="用户名" autocomplete="username">
+              <input type="password" class="auth-input" id="login-password" placeholder="密码" autocomplete="current-password">
+              <p class="auth-error" id="login-error" style="display:none"></p>
+              <button class="auth-submit" id="login-confirm">登录</button>
+            </div>
+            
+            <!-- 注册表单 -->
+            <div id="register-form" class="auth-form" style="display:none">
+              <input type="text" class="auth-input" id="register-username" placeholder="用户名（2-20个字符）" autocomplete="username">
+              <input type="password" class="auth-input" id="register-password" placeholder="密码（至少6位）" autocomplete="new-password">
+              <input type="password" class="auth-input" id="register-password-confirm" placeholder="确认密码" autocomplete="new-password">
+              <p class="auth-error" id="register-error" style="display:none"></p>
+              <button class="auth-submit" id="register-confirm">注册</button>
+            </div>
+          </div>
+        </div>
+
         <div class="content-placeholder animate-float" id="placeholder">
           <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" opacity="0.4"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>
           <p>从右侧选择一个笔记本</p>
@@ -138,13 +167,70 @@
       <aside class="sidebar">
         <div class="sidebar-header">
           <h2 class="sidebar-title">笔记本</h2>
-          <button class="icon-btn" id="btn-new-file" title="新建笔记本">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-          </button>
+          <div class="sidebar-actions">
+            <button class="icon-btn" id="btn-groups" title="群组管理">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+            </button>
+            <button class="icon-btn" id="btn-new-file" title="新建笔记本">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            </button>
+          </div>
         </div>
+        <div class="group-view-indicator" id="group-view-indicator" style="display:none"></div>
         <ul class="file-list" id="file-list"></ul>
       </aside>
     </main>
+  </div>
+
+  <!-- 群组管理弹窗 -->
+  <div class="modal-overlay" id="group-overlay" style="display:none">
+    <div class="modal animate-scale-in" style="max-width:480px">
+      <div class="settings-header">
+        <h3 class="settings-title" id="group-modal-title">群组管理</h3>
+        <div style="display:flex;gap:8px;align-items:center">
+          <button class="icon-btn hidden" id="group-back" title="返回">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+          </button>
+          <button class="modal-close" id="group-close" title="关闭">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- 群组列表视图 -->
+      <div id="group-list-view">
+        <div class="group-tabs">
+          <button class="auth-tab active" data-tab="my-groups">我的群组</button>
+          <button class="auth-tab" data-tab="join-group">加入群组</button>
+          <button class="auth-tab" data-tab="create-group">创建群组</button>
+        </div>
+        
+        <div id="my-groups" class="group-tab-content">
+          <div id="group-list" class="group-list"></div>
+        </div>
+        
+        <div id="join-group" class="group-tab-content" style="display:none">
+          <div class="group-form">
+            <input type="text" class="auth-input" id="join-invite-code" placeholder="输入邀请码">
+            <button class="btn-sm btn-sm-save" id="btn-join-group">加入</button>
+          </div>
+          <p class="auth-error" id="join-error" style="display:none"></p>
+        </div>
+        
+        <div id="create-group" class="group-tab-content" style="display:none">
+          <div class="group-form">
+            <input type="text" class="auth-input" id="new-group-name" placeholder="群组名称">
+            <button class="btn-sm btn-sm-save" id="btn-create-group">创建</button>
+          </div>
+          <p class="auth-error" id="create-error" style="display:none"></p>
+        </div>
+      </div>
+
+      <!-- 群组详情视图 -->
+      <div id="group-detail-view" style="display:none">
+        <div class="group-detail-content" id="group-detail-content"></div>
+      </div>
+    </div>
   </div>
 
   <!-- 确认弹窗 -->
@@ -154,41 +240,6 @@
       <div class="modal-actions">
         <button class="modal-btn modal-btn-cancel" id="modal-cancel">取消</button>
         <button class="modal-btn modal-btn-confirm" id="modal-confirm">确认</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- 登录/注册弹窗 -->
-  <div class="modal-overlay" id="auth-overlay" style="display:none">
-    <div class="modal animate-scale-in">
-      <div class="auth-tabs">
-        <button class="auth-tab active" data-tab="login">登录</button>
-        <button class="auth-tab" data-tab="register">注册</button>
-      </div>
-      
-      <!-- 登录表单 -->
-      <div id="login-form" class="auth-form">
-        <p class="modal-text">登录到枕书阁</p>
-        <input type="text" class="auth-input" id="login-username" placeholder="用户名" autocomplete="username">
-        <input type="password" class="auth-input" id="login-password" placeholder="密码" autocomplete="current-password">
-        <p class="auth-error" id="login-error" style="display:none"></p>
-        <div class="modal-actions">
-          <button class="modal-btn modal-btn-cancel" id="auth-cancel">取消</button>
-          <button class="modal-btn modal-btn-confirm" id="login-confirm">登录</button>
-        </div>
-      </div>
-      
-      <!-- 注册表单 -->
-      <div id="register-form" class="auth-form" style="display:none">
-        <p class="modal-text">注册新账号</p>
-        <input type="text" class="auth-input" id="register-username" placeholder="用户名（2-20个字符）" autocomplete="username">
-        <input type="password" class="auth-input" id="register-password" placeholder="密码（至少6位）" autocomplete="new-password">
-        <input type="password" class="auth-input" id="register-password-confirm" placeholder="确认密码" autocomplete="new-password">
-        <p class="auth-error" id="register-error" style="display:none"></p>
-        <div class="modal-actions">
-          <button class="modal-btn modal-btn-cancel" id="register-cancel">取消</button>
-          <button class="modal-btn modal-btn-confirm" id="register-confirm">注册</button>
-        </div>
       </div>
     </div>
   </div>

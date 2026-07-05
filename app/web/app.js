@@ -1,7 +1,9 @@
 // ===== 枕书阁 - Web 版 =====
 // 数据存储在单一 notes.json，通过 notebooks 数组字段做 tag 分类
 
-const API_BASE = window.location.origin;
+const API_BASE = window.location.pathname.startsWith('/notes/')
+  ? window.location.origin + '/notes'
+  : window.location.origin;
 
 // ===== 存储 API =====
 const storage = {
@@ -14,8 +16,18 @@ const storage = {
     const url = notebook
       ? `${API_BASE}/api/notes?notebook=${encodeURIComponent(notebook)}`
       : `${API_BASE}/api/notes`;
-    const res = await fetch(url, { headers: getAuthHeaders() });
-    return await res.json();
+    
+    let lastError;
+    for (let i = 0; i < 3; i++) {
+      try {
+        const res = await fetch(url, { headers: getAuthHeaders() });
+        return await res.json();
+      } catch (e) {
+        lastError = e;
+        if (i < 2) await new Promise(r => setTimeout(r, 1000));
+      }
+    }
+    throw lastError;
   },
 
   async getAllNotes() {
@@ -139,6 +151,52 @@ const storage = {
         body: JSON.stringify({ sourceId: r.source_id, targetId: r.target_id, type: r.type })
       });
     }
+  },
+
+  // 群组相关
+  async getGroups() {
+    const res = await fetch(`${API_BASE}/api/groups`, { headers: getAuthHeaders() });
+    return await res.json();
+  },
+
+  async createGroup(name) {
+    const res = await fetch(`${API_BASE}/api/groups`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ name })
+    });
+    return await res.json();
+  },
+
+  async joinGroup(inviteCode) {
+    const res = await fetch(`${API_BASE}/api/groups/join`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ inviteCode })
+    });
+    return await res.json();
+  },
+
+  async getGroupDetail(groupId) {
+    const res = await fetch(`${API_BASE}/api/groups/${groupId}`, { headers: getAuthHeaders() });
+    return await res.json();
+  },
+
+  async addGroupNotebook(groupId, notebookName) {
+    const res = await fetch(`${API_BASE}/api/groups/${groupId}/notebooks`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ notebookName })
+    });
+    return await res.json();
+  },
+
+  async removeGroupNotebook(groupId, notebookName) {
+    const res = await fetch(`${API_BASE}/api/groups/${groupId}/notebooks/${encodeURIComponent(notebookName)}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders()
+    });
+    return await res.json();
   }
 };
 
@@ -161,6 +219,14 @@ function clearAuth() {
   authToken = '';
   localStorage.removeItem('zhenshuge_auth');
   document.body.classList.remove('auth-unlocked');
+  notes = [];
+  allNotebooks = [];
+  currentNotebook = null;
+  document.getElementById('notes-list').innerHTML = '';
+  document.getElementById('file-list').innerHTML = '';
+  document.getElementById('notes-view').style.display = 'none';
+  document.getElementById('placeholder').style.display = 'none';
+  showAuthOverlay();
 }
 
 // ===== 状态 =====
@@ -172,6 +238,9 @@ let searchMode = false;
 let navigatingToNote = false;
 let activeFilters = {};
 let originalNotes = null;
+let currentView = 'personal';  // 'personal' | 'group'
+let currentGroupId = null;
+let currentGroupName = null;
 
 // ===== 模板数据层 =====
 function getActiveTemplate() {
@@ -323,6 +392,31 @@ let modalResolve = null;
 // ===== 初始化 =====
 async function init() {
   loadTheme();
+  setupEvents();
+  setupSearch();
+  setupFilter();
+
+  // 检查 SSO token
+  const urlParams = new URLSearchParams(window.location.search);
+  const ssoToken = urlParams.get('sso');
+  if (ssoToken) {
+    try {
+      const res = await fetch(`${API_BASE}/api/auth/sso-login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ssoToken })
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setAuth(data.token);
+        window.history.replaceState({}, '', window.location.pathname);
+        document.body.classList.add('auth-unlocked');
+        await loadAppData();
+        return;
+      }
+    } catch (e) {}
+  }
+
   if (authToken) {
     try {
       const res = await fetch(`${API_BASE}/api/auth/check`, {
@@ -331,27 +425,38 @@ async function init() {
       });
       if (res.ok) {
         document.body.classList.add('auth-unlocked');
+        await loadAppData();
       } else {
         clearAuth();
+        showAuthOverlay();
       }
-    } catch (e) { clearAuth(); }
+    } catch (e) {
+      clearAuth();
+      showAuthOverlay();
+    }
   } else {
-    try {
-      const res = await fetch(`${API_BASE}/api/auth/check`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Auth-Token': '' }
-      });
-      if (res.ok) {
-        document.body.classList.add('auth-unlocked');
-      }
-    } catch (e) {}
+    showAuthOverlay();
   }
+}
+
+function showAuthOverlay() {
+  document.getElementById('auth-page').style.display = 'flex';
+  document.getElementById('placeholder').style.display = 'none';
+}
+
+function hideAuthPage() {
+  const authPage = document.getElementById('auth-page');
+  authPage.classList.add('hiding');
+  authPage.addEventListener('animationend', () => {
+    authPage.style.display = 'none';
+    authPage.classList.remove('hiding');
+  }, { once: true });
+}
+
+async function loadAppData() {
   globals = await storage.getGlobals();
   ensureTemplateDefaults();
   await loadFiles();
-  setupEvents();
-  setupSearch();
-  setupFilter();
 }
 
 // ===== 主题 =====
@@ -402,19 +507,91 @@ function toggleTheme() {
 async function loadFiles() {
   const notebooks = await storage.getNotebooks();
   allNotebooks = notebooks;
-  fileList.innerHTML = notebooks.map(nb => `
-    <li class="file-item ${nb.name === currentNotebook ? 'active' : ''}" data-name="${escapeHtml(nb.name)}" draggable="true">
+  const filtered = notebooks.filter(nb => {
+    if (currentView === 'group') {
+      return nb.source === 'group' && nb.groupId === currentGroupId;
+    }
+    return nb.source !== 'group';
+  });
+  fileList.innerHTML = filtered.map(nb => {
+    const isGroup = nb.source === 'group';
+    const isReadonly = nb.readonly;
+    return `
+    <li class="file-item ${nb.name === currentNotebook ? 'active' : ''} ${isGroup ? 'file-item-group' : ''}" data-name="${escapeHtml(nb.name)}" data-source="${nb.source || 'personal'}" draggable="${!isGroup}">
       <span class="file-item-drag">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="6" r="1.5"/><circle cx="15" cy="6" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="18" r="1.5"/><circle cx="15" cy="18" r="1.5"/></svg>
+        ${isGroup
+          ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>'
+          : '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="6" r="1.5"/><circle cx="15" cy="6" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="18" r="1.5"/><circle cx="15" cy="18" r="1.5"/></svg>'
+        }
       </span>
-      <span class="file-item-name">${escapeHtml(nb.name)}</span>
+      <span class="file-item-name" title="${isGroup ? '群组共享: ' + escapeHtml(nb.groupName || '') : ''}">${escapeHtml(nb.name)}</span>
       <span class="file-item-count">${nb.count || 0}</span>
-      <button class="file-item-delete" data-name="${escapeHtml(nb.name)}" title="删除">
+      ${isGroup && isReadonly ? '' : `<button class="file-item-delete" data-name="${escapeHtml(nb.name)}" title="删除">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
-      </button>
+      </button>`}
     </li>
-  `).join('');
+  `}).join('');
   setupDragSort();
+  updateGroupViewIndicator();
+}
+
+// ===== 群组视图切换 =====
+function updateGroupViewIndicator() {
+  const indicator = document.getElementById('group-view-indicator');
+  if (!indicator) return;
+  if (currentView === 'group' && currentGroupName) {
+    indicator.innerHTML = `
+      <button class="group-view-back" id="btn-exit-group" title="返回个人笔记本">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+        <span>${escapeHtml(currentGroupName)}</span>
+      </button>`;
+    indicator.style.display = 'block';
+    document.getElementById('btn-exit-group').addEventListener('click', exitGroup);
+  } else {
+    indicator.style.display = 'none';
+    indicator.innerHTML = '';
+  }
+}
+
+async function enterGroup(groupId, groupName) {
+  currentView = 'group';
+  currentGroupId = groupId;
+  currentGroupName = groupName;
+  // 弹窗淡出
+  const overlay = document.getElementById('group-overlay');
+  if (overlay) {
+    overlay.classList.add('hiding');
+    overlay.addEventListener('animationend', () => {
+      overlay.style.display = 'none';
+      overlay.classList.remove('hiding');
+    }, { once: true });
+  }
+  // 侧边栏过渡：淡出 → 重载 → 淡入
+  fileList.classList.add('sidebar-fade-out');
+  fileList.addEventListener('animationend', async () => {
+    fileList.classList.remove('sidebar-fade-out');
+    await loadFiles();
+    fileList.classList.add('sidebar-fade-in');
+    fileList.addEventListener('animationend', () => {
+      fileList.classList.remove('sidebar-fade-in');
+    }, { once: true });
+    // 自动打开第一个群组笔记本
+    const firstItem = fileList.querySelector('.file-item');
+    if (firstItem) openNotebook(firstItem.dataset.name);
+  }, { once: true });
+}
+
+async function exitGroup() {
+  currentView = 'personal';
+  currentGroupId = null;
+  currentGroupName = null;
+  currentNotebook = null;
+  notes = [];
+  await loadFiles();
+  // 显示占位符
+  notesView.style.display = 'none';
+  placeholder.style.display = 'flex';
+  fileTitle.textContent = '';
 }
 
 // ===== 拖拽排序 =====
@@ -475,7 +652,13 @@ async function saveFileOrder() {
 // ===== 打开笔记本 =====
 async function openNotebook(name) {
   currentNotebook = name;
-  notes = await storage.getNotes(name);
+  try {
+    notes = await storage.getNotes(name);
+  } catch (e) {
+    console.error('加载笔记失败:', e);
+    notes = [];
+    showToast('加载失败，请重试');
+  }
   activeFilters = {};
   originalNotes = null;
   document.getElementById('filter-tags').style.display = 'none';
@@ -1963,7 +2146,22 @@ async function exportData() {
   if (btn) { btn.disabled = true; btn.classList.add('loading'); btn.title = '正在导出...'; }
 
   try {
-    const allNotes = await storage.getAllNotes();
+    let allNotes;
+    let exportFilename;
+    if (currentView === 'group' && currentGroupId) {
+      // 群组模式：只导出群组笔记本的笔记
+      const groupNotebooks = allNotebooks.filter(nb => nb.source === 'group' && nb.groupId === currentGroupId);
+      allNotes = [];
+      for (const nb of groupNotebooks) {
+        const nbNotes = await storage.getNotes(nb.name);
+        allNotes.push(...nbNotes);
+      }
+      exportFilename = `${currentGroupName}_备份_${new Date().toISOString().slice(0, 10)}.json`;
+    } else {
+      // 个人模式：导出全部个人笔记
+      allNotes = await storage.getAllNotes();
+      exportFilename = `枕书阁_备份_${new Date().toISOString().slice(0, 10)}.json`;
+    }
     const allRefs = await storage.getAllRefs();
     const globalsData = await storage.getGlobals();
 
@@ -2012,7 +2210,7 @@ async function exportData() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `枕书阁_备份_${new Date().toISOString().slice(0, 10)}.json`;
+    a.download = exportFilename;
     a.click();
     URL.revokeObjectURL(url);
   } finally {
@@ -2066,6 +2264,13 @@ async function importData(file) {
           n.notebooks = ['未分类'];
         }
       });
+
+      // 群组模式：将导入笔记分配到当前群组笔记本
+      if (currentView === 'group' && currentNotebook) {
+        importedNotes.forEach(n => {
+          n.notebooks = [currentNotebook];
+        });
+      }
 
       // 恢复图片
       if (data.images && data.images.length > 0) {
@@ -3519,6 +3724,358 @@ function setupEvents() {
   document.getElementById('btn-new-file').addEventListener('click', createNotebook);
   document.getElementById('btn-add-note').addEventListener('click', addNote);
 
+  // ===== 群组管理 =====
+  const groupOverlay = document.getElementById('group-overlay');
+  const groupClose = document.getElementById('group-close');
+  const groupBack = document.getElementById('group-back');
+  const groupListView = document.getElementById('group-list-view');
+  const groupDetailView = document.getElementById('group-detail-view');
+  const groupModalTitle = document.getElementById('group-modal-title');
+
+  function openGroupModal() {
+    groupOverlay.style.display = 'flex';
+    groupOverlay.classList.remove('hiding');
+    showGroupListView();
+    loadMyGroups();
+  }
+
+  function closeGroupModal() {
+    groupOverlay.classList.add('hiding');
+    groupOverlay.addEventListener('animationend', () => {
+      groupOverlay.style.display = 'none';
+      groupOverlay.classList.remove('hiding');
+    }, { once: true });
+  }
+
+  function showGroupListView() {
+    // 详情向右滑出，列表从左滑入
+    groupDetailView.classList.add('slide-out-right');
+    groupDetailView.addEventListener('animationend', () => {
+      groupDetailView.classList.remove('slide-out-right');
+      groupDetailView.style.display = 'none';
+      groupListView.style.display = 'block';
+      groupListView.classList.add('slide-in-left');
+      groupListView.addEventListener('animationend', () => {
+        groupListView.classList.remove('slide-in-left');
+      }, { once: true });
+    }, { once: true });
+    groupBack.classList.add('hidden');
+    groupModalTitle.textContent = '群组管理';
+    // 激活第一个 Tab 内容的动画
+    document.querySelectorAll('.group-tab-content').forEach(c => {
+      c.classList.remove('active');
+    });
+    const activeTab = document.querySelector('.group-tab-content[style*="block"], .group-tab-content:not([style*="display: none"])');
+    if (activeTab) {
+      activeTab.offsetHeight;
+      activeTab.classList.add('active');
+    }
+  }
+
+  function showGroupDetailView() {
+    // 列表向左滑出，详情从右滑入
+    groupListView.classList.add('slide-out-left');
+    groupListView.addEventListener('animationend', () => {
+      groupListView.classList.remove('slide-out-left');
+      groupListView.style.display = 'none';
+      groupDetailView.style.display = 'block';
+      groupDetailView.classList.add('slide-in-right');
+      groupDetailView.addEventListener('animationend', () => {
+        groupDetailView.classList.remove('slide-in-right');
+      }, { once: true });
+    }, { once: true });
+    groupBack.classList.remove('hidden');
+  }
+
+  document.getElementById('btn-groups').addEventListener('click', openGroupModal);
+  groupClose.addEventListener('click', closeGroupModal);
+  groupBack.addEventListener('click', showGroupListView);
+
+  groupOverlay.addEventListener('click', (e) => {
+    if (e.target === groupOverlay) closeGroupModal();
+  });
+
+  // 群组 Tab 切换
+  document.querySelectorAll('.group-tabs .auth-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.group-tabs .auth-tab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      const tabName = tab.dataset.tab;
+      document.querySelectorAll('.group-tab-content').forEach(c => {
+        c.style.display = 'none';
+        c.classList.remove('active');
+      });
+      const target = document.getElementById(tabName);
+      target.style.display = 'block';
+      // 触发动画
+      target.offsetHeight; // 强制重排
+      target.classList.add('active');
+    });
+  });
+
+  // 加载我的群组
+  async function loadMyGroups() {
+    const groupList = document.getElementById('group-list');
+    groupList.innerHTML = '<p style="color:var(--color-ink-faint)">加载中...</p>';
+    try {
+      const groups = await storage.getGroups();
+      if (groups.length === 0) {
+        groupList.innerHTML = '<p style="color:var(--color-ink-faint)">暂无群组，创建一个或通过邀请码加入</p>';
+        return;
+      }
+      groupList.innerHTML = groups.map((g, i) => `
+        <div class="group-item animate-fade-up" data-id="${g.id}" data-role="${g.role}" data-name="${escapeHtml(g.name)}" style="animation-delay:${i * 0.06}s">
+          <div class="group-item-header">
+            <span class="group-name">${escapeHtml(g.name)}</span>
+            <span class="group-role-badge ${g.role === 'admin' ? 'role-admin' : 'role-member'}">${g.role === 'admin' ? '管理员' : '成员'}</span>
+          </div>
+          <div class="group-item-meta">创建于 ${g.created_at || '未知'}</div>
+          <div class="group-item-footer" onclick="event.stopPropagation()">
+            <div class="group-invite">
+              <span class="invite-code">${g.invite_code}</span>
+              <button class="btn-copy" data-code="${g.invite_code}">复制</button>
+            </div>
+            <button class="btn-enter-group" data-id="${g.id}" data-name="${escapeHtml(g.name)}" title="进入群组笔记本">
+              进入
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+            </button>
+          </div>
+        </div>
+      `).join('');
+
+      // 点击群组查看详情
+      groupList.querySelectorAll('.group-item').forEach(item => {
+        item.addEventListener('click', () => {
+          openGroupDetail(item.dataset.id, item.dataset.role);
+        });
+      });
+
+      // 进入群组视图
+      groupList.querySelectorAll('.btn-enter-group').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          enterGroup(btn.dataset.id, btn.dataset.name);
+        });
+      });
+
+      // 复制邀请码
+      groupList.querySelectorAll('.btn-copy').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          navigator.clipboard.writeText(btn.dataset.code).then(() => {
+            btn.textContent = '已复制';
+            setTimeout(() => btn.textContent = '复制', 1500);
+          });
+        });
+      });
+    } catch (e) {
+      groupList.innerHTML = '<p style="color:#c0392b">加载失败</p>';
+    }
+  }
+
+  // 打开群组详情
+  async function openGroupDetail(groupId, role) {
+    showGroupDetailView();
+    groupModalTitle.textContent = '加载中...';
+    const detailContent = document.getElementById('group-detail-content');
+    detailContent.innerHTML = '<p style="color:var(--color-ink-faint)">加载中...</p>';
+
+    try {
+      const group = await storage.getGroupDetail(groupId);
+      groupModalTitle.textContent = group.name;
+      const isAdmin = role === 'admin';
+
+      detailContent.innerHTML = `
+        <!-- 邀请码 -->
+        <div class="group-detail-section">
+          <div class="group-section-title">邀请码</div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <span class="invite-code">${group.invite_code}</span>
+            <button class="btn-copy" id="detail-copy-code" data-code="${group.invite_code}">复制</button>
+          </div>
+        </div>
+
+        <!-- 共享笔记本 -->
+        <div class="group-detail-section">
+          <div class="group-section-title">共享笔记本</div>
+          ${isAdmin ? `
+            <div class="group-form" style="margin-bottom:12px">
+              <input type="text" class="auth-input" id="add-group-notebook" placeholder="输入笔记本名称">
+              <button class="btn-sm btn-sm-save" id="btn-add-group-notebook">添加</button>
+            </div>
+          ` : ''}
+          <div id="group-notebook-list">
+            ${group.notebooks.length > 0 
+              ? group.notebooks.map(nb => `
+                <div class="group-notebook-item">
+                  <span>${escapeHtml(nb)}</span>
+                  ${isAdmin ? `<button class="btn-remove-notebook" data-name="${escapeHtml(nb)}">移除</button>` : ''}
+                </div>
+              `).join('')
+              : '<p style="color:var(--color-ink-faint);font-size:13px">暂无共享笔记本</p>'
+            }
+          </div>
+        </div>
+
+        <!-- 成员列表 -->
+        <div class="group-detail-section">
+          <div class="group-section-title">成员 (${group.members.length})</div>
+          ${group.members.map(m => `
+            <div class="group-member-item">
+              <div class="group-member-info">
+                <div class="group-member-avatar">${m.username.charAt(0).toUpperCase()}</div>
+                <div>
+                  <div class="group-member-name">${escapeHtml(m.username)}</div>
+                  <div class="group-member-role">${m.role === 'admin' ? '管理员' : '成员'}</div>
+                </div>
+              </div>
+              ${isAdmin && m.id !== currentUser.userId ? `<button class="btn-remove-member" data-userid="${m.id}">移除</button>` : ''}
+            </div>
+          `).join('')}
+        </div>
+
+        <!-- 操作按钮 -->
+        <div class="group-actions">
+          ${isAdmin 
+            ? `<button class="btn-danger" id="btn-dissolve-group">解散群组</button>`
+            : `<button class="btn-leave" id="btn-leave-group">退出群组</button>`
+          }
+        </div>
+      `;
+
+      // 复制邀请码
+      document.getElementById('detail-copy-code')?.addEventListener('click', () => {
+        navigator.clipboard.writeText(group.invite_code).then(() => {
+          const btn = document.getElementById('detail-copy-code');
+          btn.textContent = '已复制';
+          setTimeout(() => btn.textContent = '复制', 1500);
+        });
+      });
+
+      // 添加共享笔记本
+      document.getElementById('btn-add-group-notebook')?.addEventListener('click', async () => {
+        const input = document.getElementById('add-group-notebook');
+        const name = input.value.trim();
+        if (!name) return;
+        const result = await storage.addGroupNotebook(groupId, name);
+        if (result.success) {
+          input.value = '';
+          await openGroupDetail(groupId, role);
+          await loadFiles();
+        } else {
+          alert(result.error || '添加失败');
+        }
+      });
+
+      // 移除共享笔记本
+      detailContent.querySelectorAll('.btn-remove-notebook').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          if (!confirm(`确定移除笔记本"${btn.dataset.name}"？`)) return;
+          await storage.removeGroupNotebook(groupId, btn.dataset.name);
+          await openGroupDetail(groupId, role);
+          await loadFiles();
+        });
+      });
+
+      // 移除成员
+      detailContent.querySelectorAll('.btn-remove-member').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          if (!confirm('确定移除此成员？')) return;
+          await fetch(`${API_BASE}/api/groups/${groupId}/members/${btn.dataset.userid}`, {
+            method: 'DELETE',
+            headers: getAuthHeaders()
+          });
+          await openGroupDetail(groupId, role);
+        });
+      });
+
+      // 解散群组
+      document.getElementById('btn-dissolve-group')?.addEventListener('click', async () => {
+        if (!confirm('确定解散此群组？此操作不可撤销！')) return;
+        await fetch(`${API_BASE}/api/groups/${groupId}`, {
+          method: 'DELETE',
+          headers: getAuthHeaders()
+        });
+        closeGroupModal();
+        await loadFiles();
+      });
+
+      // 退出群组
+      document.getElementById('btn-leave-group')?.addEventListener('click', async () => {
+        if (!confirm('确定退出此群组？')) return;
+        await fetch(`${API_BASE}/api/groups/${groupId}/leave`, {
+          method: 'POST',
+          headers: getAuthHeaders()
+        });
+        closeGroupModal();
+        await loadFiles();
+      });
+    } catch (e) {
+      detailContent.innerHTML = '<p style="color:#c0392b">加载失败</p>';
+    }
+  }
+
+  // 创建群组
+  document.getElementById('btn-create-group').addEventListener('click', async () => {
+    const nameInput = document.getElementById('new-group-name');
+    const name = nameInput.value.trim();
+    const errorEl = document.getElementById('create-error');
+    if (!name) {
+      errorEl.textContent = '请输入群组名称';
+      errorEl.style.display = 'block';
+      return;
+    }
+    try {
+      const result = await storage.createGroup(name);
+      if (result.id) {
+        nameInput.value = '';
+        errorEl.style.display = 'none';
+        document.querySelectorAll('.group-tabs .auth-tab').forEach(t => t.classList.remove('active'));
+        document.querySelector('.group-tabs .auth-tab[data-tab="my-groups"]').classList.add('active');
+        document.querySelectorAll('.group-tab-content').forEach(c => c.style.display = 'none');
+        document.getElementById('my-groups').style.display = 'block';
+        await loadMyGroups();
+      } else {
+        errorEl.textContent = result.error || '创建失败';
+        errorEl.style.display = 'block';
+      }
+    } catch (e) {
+      errorEl.textContent = '连接失败';
+      errorEl.style.display = 'block';
+    }
+  });
+
+  // 加入群组
+  document.getElementById('btn-join-group').addEventListener('click', async () => {
+    const codeInput = document.getElementById('join-invite-code');
+    const code = codeInput.value.trim();
+    const errorEl = document.getElementById('join-error');
+    if (!code) {
+      errorEl.textContent = '请输入邀请码';
+      errorEl.style.display = 'block';
+      return;
+    }
+    try {
+      const result = await storage.joinGroup(code);
+      if (result.success) {
+        codeInput.value = '';
+        errorEl.style.display = 'none';
+        document.querySelectorAll('.group-tabs .auth-tab').forEach(t => t.classList.remove('active'));
+        document.querySelector('.group-tabs .auth-tab[data-tab="my-groups"]').classList.add('active');
+        document.querySelectorAll('.group-tab-content').forEach(c => c.style.display = 'none');
+        document.getElementById('my-groups').style.display = 'block';
+        await loadMyGroups();
+        await loadFiles();
+      } else {
+        errorEl.textContent = result.error || '加入失败';
+        errorEl.style.display = 'block';
+      }
+    } catch (e) {
+      errorEl.textContent = '连接失败';
+      errorEl.style.display = 'block';
+    }
+  });
+
   const notesContent = document.getElementById('notes-content');
   notesContent.addEventListener('click', async (e) => {
     // 点击笔记标签跳转到对应笔记本
@@ -3608,7 +4165,7 @@ function setupEvents() {
   document.getElementById('btn-toggle-theme').addEventListener('click', toggleTheme);
 
   // ===== 登录/注册功能 =====
-  const authOverlay = document.getElementById('auth-overlay');
+  const authPage = document.getElementById('auth-page');
   const btnAuth = document.getElementById('btn-auth');
 
   // 切换登录/注册标签
@@ -3625,21 +4182,7 @@ function setupEvents() {
   btnAuth.addEventListener('click', async () => {
     if (document.body.classList.contains('auth-unlocked')) {
       clearAuth();
-    } else {
-      try {
-        const checkRes = await fetch(`${API_BASE}/api/auth/check`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'X-Auth-Token': authToken }
-        });
-        if (checkRes.ok) {
-          return;
-        }
-      } catch (e) {}
-      authOverlay.style.display = 'flex';
-      document.getElementById('login-username').value = '';
-      document.getElementById('login-password').value = '';
-      document.getElementById('login-error').style.display = 'none';
-      setTimeout(() => document.getElementById('login-username').focus(), 100);
+      showAuthOverlay();
     }
   });
 
@@ -3665,8 +4208,8 @@ function setupEvents() {
       
       if (res.ok && data.success) {
         setAuth(data.token);
-        authOverlay.style.display = 'none';
-        renderNotes();
+        hideAuthPage();
+        await loadAppData();
       } else {
         errorEl.textContent = data.error || '登录失败';
         errorEl.style.display = 'block';
@@ -3706,8 +4249,8 @@ function setupEvents() {
       
       if (res.ok && data.success) {
         setAuth(data.token);
-        authOverlay.style.display = 'none';
-        renderNotes();
+        hideAuthPage();
+        await loadAppData();
       } else {
         errorEl.textContent = data.error || '注册失败';
         errorEl.style.display = 'block';
@@ -3716,18 +4259,6 @@ function setupEvents() {
       errorEl.textContent = '连接失败';
       errorEl.style.display = 'block';
     }
-  });
-
-  // 取消登录/注册
-  document.getElementById('auth-cancel').addEventListener('click', () => {
-    authOverlay.style.display = 'none';
-  });
-  document.getElementById('register-cancel').addEventListener('click', () => {
-    authOverlay.style.display = 'none';
-  });
-
-  authOverlay.addEventListener('click', (e) => {
-    if (e.target === authOverlay) authOverlay.style.display = 'none';
   });
 
   // 回车键提交
