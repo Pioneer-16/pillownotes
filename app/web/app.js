@@ -1181,7 +1181,11 @@ function editNote(index) {
   const template = getActiveTemplate();
 
   const noteNotebooks = note.notebooks || [];
-  const toggleChipsHtml = allNotebooks.map(nb => {
+  const contextNotebooks = allNotebooks.filter(nb => {
+    if (currentView === 'group') return nb.source === 'group' && nb.groupId === currentGroupId;
+    return nb.source !== 'group';
+  });
+  const toggleChipsHtml = contextNotebooks.map(nb => {
     const active = noteNotebooks.includes(nb.name);
     return `<span class="tag-chip ${active ? 'active' : ''}" data-value="${escapeHtml(nb.name)}">${escapeHtml(nb.name)}</span>`;
   }).join('');
@@ -1855,11 +1859,13 @@ async function saveEdit(index) {
     globals[`last_${fieldId}`] = val;
   }
 
-  // 更新全局笔记本列表
-  for (const nb of notebooks) {
-    if (!globals.notebooks) globals.notebooks = [];
-    if (!globals.notebooks.includes(nb)) {
-      globals.notebooks.push(nb);
+  // 更新全局笔记本列表（仅个人模式）
+  if (currentView !== 'group') {
+    for (const nb of notebooks) {
+      if (!globals.notebooks) globals.notebooks = [];
+      if (!globals.notebooks.includes(nb)) {
+        globals.notebooks.push(nb);
+      }
     }
   }
 
@@ -2153,7 +2159,12 @@ function createNotebook() {
   async function confirm() {
     const name = input.value.trim();
     if (!name) { li.remove(); return; }
-    const result = await storage.createNotebook(name);
+    let result;
+    if (currentView === 'group' && currentGroupId) {
+      result = await storage.addGroupNotebook(currentGroupId, name);
+    } else {
+      result = await storage.createNotebook(name);
+    }
     if (result.success) {
       await loadFiles();
       await openNotebook(name);
