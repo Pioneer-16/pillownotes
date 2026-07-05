@@ -1,0 +1,1264 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AirDream · 工作台</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <style>
+    :root {
+      --color-paper: #f6f3ec;
+      --color-paper-warm: #f0ebe0;
+      --color-paper-deep: #e8e1d3;
+      --color-ink: #1a1a18;
+      --color-ink-soft: #3d3d38;
+      --color-ink-faint: #8a8a80;
+      --color-ink-ghost: #b8b8ae;
+      --color-bamboo: #2d5a3d;
+      --color-bamboo-light: #3a7a52;
+      --color-cloud: #ffffff;
+      --color-shadow: rgba(26, 26, 24, 0.06);
+      --font-display: "Noto Serif SC", "Source Han Serif SC", "楷体", KaiTi, Georgia, serif;
+      --font-body: "Noto Sans SC", "Source Han Sans SC", "微软雅黑", system-ui, sans-serif;
+      --radius: 8px;
+      --radius-lg: 12px;
+    }
+
+    [data-theme="dark"] {
+      --color-paper: #1e1d1b;
+      --color-paper-warm: #2c2a27;
+      --color-paper-deep: #3c3935;
+      --color-ink: #e5e1da;
+      --color-ink-soft: #b5b1a8;
+      --color-ink-faint: #928f87;
+      --color-ink-ghost: #706d67;
+      --color-bamboo: #4faa70;
+      --color-bamboo-light: #5fc085;
+      --color-cloud: #262523;
+      --color-shadow: rgba(0, 0, 0, 0.3);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; }
+
+    body {
+      font-family: var(--font-body);
+      background: var(--color-paper);
+      color: var(--color-ink);
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* 顶栏 */
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 32px;
+      background: var(--color-cloud);
+      border-bottom: 1px solid var(--color-paper-deep);
+    }
+
+    .logo {
+      font-family: var(--font-display);
+      font-size: 20px;
+      font-weight: 600;
+      letter-spacing: 4px;
+      color: var(--color-ink);
+    }
+
+    .topbar-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .btn-icon {
+      width: 36px;
+      height: 36px;
+      border: none;
+      background: transparent;
+      border-radius: var(--radius);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--color-ink-soft);
+      transition: background 0.2s;
+    }
+
+    .btn-icon:hover {
+      background: var(--color-paper-warm);
+    }
+
+    /* 主内容 */
+    .main {
+      flex: 1;
+      padding: 48px 32px;
+      max-width: 1200px;
+      margin: 0 auto;
+      width: 100%;
+    }
+
+    .welcome {
+      text-align: center;
+      margin-bottom: 48px;
+    }
+
+    .welcome h1 {
+      font-family: var(--font-display);
+      font-size: 32px;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+
+    .welcome p {
+      color: var(--color-ink-faint);
+      font-size: 15px;
+    }
+
+    /* 服务卡片 */
+    .services {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 20px;
+    }
+
+    .service-card {
+      background: var(--color-cloud);
+      border: 1px solid var(--color-paper-deep);
+      border-radius: var(--radius-lg);
+      padding: 28px;
+      text-decoration: none;
+      color: var(--color-ink);
+      transition: transform 0.2s, box-shadow 0.2s;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .service-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px var(--color-shadow);
+    }
+
+    .service-icon {
+      width: 48px;
+      height: 48px;
+      background: var(--color-paper-warm);
+      border-radius: var(--radius);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+    }
+
+    .service-name {
+      font-size: 18px;
+      font-weight: 600;
+    }
+
+    .service-desc {
+      font-size: 14px;
+      color: var(--color-ink-faint);
+      line-height: 1.6;
+    }
+
+    .service-tag {
+      display: inline-block;
+      padding: 2px 10px;
+      background: var(--color-paper-warm);
+      border-radius: 12px;
+      font-size: 12px;
+      color: var(--color-ink-faint);
+      width: fit-content;
+    }
+
+    .service-tag.public {
+      background: #e8f5e9;
+      color: #2e7d32;
+    }
+
+    [data-theme="dark"] .service-tag.public {
+      background: #1b3a25;
+      color: #66bb6a;
+    }
+
+    /* 登录区域 */
+    .auth-section {
+      max-width: 360px;
+      margin: 80px auto;
+      text-align: center;
+      animation: authFadeIn 0.3s ease;
+    }
+
+    .auth-section.hiding {
+      animation: authFadeOut 0.3s ease forwards;
+    }
+
+    @keyframes authFadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    @keyframes authFadeOut {
+      from { opacity: 1; }
+      to { opacity: 0; }
+    }
+
+    .auth-card {
+      background: var(--color-cloud);
+      border: 1px solid var(--color-paper-deep);
+      border-radius: var(--radius-lg);
+      padding: 36px;
+      box-shadow: 0 4px 24px var(--color-shadow);
+      animation: authCardIn 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    .auth-section.hiding .auth-card {
+      animation: authCardOut 0.3s ease forwards;
+    }
+
+    @keyframes authCardIn {
+      from { opacity: 0; transform: translateY(20px) scale(0.96); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    @keyframes authCardOut {
+      from { opacity: 1; transform: translateY(0) scale(1); }
+      to { opacity: 0; transform: translateY(-10px) scale(0.98); }
+    }
+
+    .auth-card h2 {
+      font-family: var(--font-display);
+      font-size: 24px;
+      margin-bottom: 24px;
+      letter-spacing: 4px;
+    }
+
+    .auth-form { display: flex; flex-direction: column; gap: 12px; }
+
+    .auth-input {
+      padding: 12px 16px;
+      border: 1px solid var(--color-paper-deep);
+      border-radius: var(--radius);
+      font-size: 14px;
+      background: var(--color-paper);
+      color: var(--color-ink);
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .auth-input:focus { border-color: var(--color-bamboo); }
+
+    .auth-submit {
+      padding: 12px;
+      background: var(--color-bamboo);
+      color: #fff;
+      border: none;
+      border-radius: var(--radius);
+      font-size: 15px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .auth-submit:hover { background: var(--color-bamboo-light); }
+
+    .auth-error {
+      color: #c0392b;
+      font-size: 13px;
+      display: none;
+    }
+
+    .auth-tabs {
+      display: flex;
+      gap: 0;
+      margin-bottom: 20px;
+      border-bottom: 1px solid var(--color-paper-deep);
+    }
+
+    .auth-tab {
+      flex: 1;
+      padding: 10px;
+      background: none;
+      border: none;
+      font-size: 14px;
+      color: var(--color-ink-faint);
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      transition: all 0.2s;
+    }
+
+    .auth-tab.active {
+      color: var(--color-bamboo);
+      border-bottom-color: var(--color-bamboo);
+    }
+
+    /* Footer */
+    .footer {
+      text-align: center;
+      padding: 24px;
+      color: var(--color-ink-ghost);
+      font-size: 13px;
+    }
+
+    .hidden { display: none !important; }
+
+    /* 管理员区域 */
+    .admin-section {
+      margin-top: 48px;
+    }
+
+    .section-title {
+      font-family: var(--font-display);
+      font-size: 20px;
+      margin-bottom: 20px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--color-paper-deep);
+    }
+
+    /* 弹窗 */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.4);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+      animation: fadeIn 0.2s ease;
+    }
+
+    .modal-overlay.hiding {
+      animation: fadeOut 0.2s ease forwards;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    @keyframes fadeOut {
+      from { opacity: 1; }
+      to { opacity: 0; }
+    }
+
+    .modal {
+      background: var(--color-cloud);
+      border-radius: var(--radius-lg);
+      width: 90%;
+      max-width: 600px;
+      max-height: 80vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 16px 48px rgba(0,0,0,0.2);
+      animation: modalIn 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    .modal-overlay.hiding .modal {
+      animation: modalOut 0.2s ease forwards;
+    }
+
+    @keyframes modalIn {
+      from { opacity: 0; transform: translateY(20px) scale(0.96); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    @keyframes modalOut {
+      from { opacity: 1; transform: translateY(0) scale(1); }
+      to { opacity: 0; transform: translateY(-10px) scale(0.98); }
+    }
+
+    .modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 20px 24px;
+      border-bottom: 1px solid var(--color-paper-deep);
+    }
+
+    .modal-header h3 {
+      font-size: 18px;
+      font-weight: 600;
+    }
+
+    .modal-body {
+      padding: 16px 24px;
+      overflow-y: auto;
+      flex: 1;
+      max-height: 60vh;
+    }
+
+    .user-list {
+      padding: 16px 24px;
+      overflow-y: auto;
+      flex: 1;
+    }
+
+    .user-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 0;
+      border-bottom: 1px solid var(--color-paper-deep);
+    }
+
+    .user-item:last-child {
+      border-bottom: none;
+    }
+
+    .user-info {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .user-name {
+      font-weight: 500;
+      font-size: 15px;
+    }
+
+    .user-meta {
+      font-size: 12px;
+      color: var(--color-ink-faint);
+    }
+
+    .user-source-tag {
+      display: inline-block;
+      padding: 1px 6px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 500;
+      vertical-align: middle;
+    }
+
+    .source-portal {
+      background: var(--color-bamboo-mist);
+      color: var(--color-bamboo);
+    }
+
+    .source-notes {
+      background: #ede9fe;
+      color: #7c3aed;
+    }
+
+    [data-theme="dark"] .source-notes {
+      background: #2e1065;
+      color: #c4b5fd;
+    }
+
+    .user-role {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 500;
+    }
+
+    .role-admin {
+      background: #fef3c7;
+      color: #92400e;
+    }
+
+    [data-theme="dark"] .role-admin {
+      background: #78350f;
+      color: #fbbf24;
+    }
+
+    .role-user {
+      background: var(--color-paper-warm);
+      color: var(--color-ink-faint);
+    }
+
+    /* 自定义下拉框 */
+    .dropdown-wrap {
+      position: relative;
+      display: inline-block;
+    }
+
+    .dropdown-trigger {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+      padding: 5px 10px;
+      min-width: 80px;
+      font-size: 12px;
+      border: 1px solid var(--color-paper-deep);
+      border-radius: var(--radius);
+      background: var(--color-paper);
+      color: var(--color-ink-soft);
+      cursor: pointer;
+      transition: all 0.2s;
+      white-space: nowrap;
+    }
+
+    .dropdown-trigger:hover {
+      border-color: var(--color-bamboo);
+      color: var(--color-bamboo);
+    }
+
+    .dropdown-trigger svg {
+      transition: transform 0.2s;
+    }
+
+    .dropdown-wrap.open .dropdown-trigger svg {
+      transform: rotate(180deg);
+    }
+
+    .dropdown-menu {
+      display: none;
+      position: absolute;
+      top: calc(100% + 4px);
+      left: 0;
+      min-width: 100%;
+      background: var(--color-cloud);
+      border: 1px solid var(--color-paper-deep);
+      border-radius: var(--radius);
+      box-shadow: 0 8px 24px var(--color-shadow-deep);
+      z-index: 100;
+      animation: menuEnter 0.15s ease-out forwards;
+    }
+
+    .dropdown-wrap.open .dropdown-menu {
+      display: block;
+    }
+
+    @keyframes menuEnter {
+      from { opacity: 0; transform: translateY(-4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .dropdown-item {
+      padding: 8px 12px;
+      font-size: 13px;
+      color: var(--color-ink-soft);
+      cursor: pointer;
+      transition: background 0.15s;
+      white-space: nowrap;
+    }
+
+    .dropdown-item:first-child {
+      border-radius: var(--radius) var(--radius) 0 0;
+    }
+
+    .dropdown-item:last-child {
+      border-radius: 0 0 var(--radius) var(--radius);
+    }
+
+    .dropdown-item:hover {
+      background: var(--color-bamboo-mist);
+      color: var(--color-bamboo);
+    }
+
+    .dropdown-item.active {
+      background: var(--color-bamboo-mist);
+      color: var(--color-bamboo);
+      font-weight: 500;
+    }
+
+    .role-badge {
+      display: inline-block;
+      padding: 5px 10px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 500;
+    }
+
+    .btn-restart {
+      padding: 6px 16px;
+      background: var(--color-bamboo);
+      color: #fff;
+      border: none;
+      border-radius: var(--radius);
+      font-size: 13px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .btn-restart:hover { background: var(--color-bamboo-light); }
+    .btn-restart:disabled { opacity: 0.6; cursor: not-allowed; }
+
+    .sys-info {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+
+    .sys-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 12px 0;
+      border-bottom: 1px solid var(--color-paper-deep);
+      font-size: 14px;
+    }
+
+    .sys-row:last-child { border-bottom: none; }
+    .sys-row span:first-child { color: var(--color-ink-faint); }
+  </style>
+</head>
+<body>
+  <!-- 顶栏 -->
+  <header class="topbar">
+    <div class="logo">AirDream</div>
+    <div class="topbar-actions" id="topbar-actions">
+      <button class="btn-icon" id="btn-theme" title="切换主题">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/></svg>
+      </button>
+      <button class="btn-icon hidden" id="btn-logout" title="退出登录">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- 主内容（登录后显示） -->
+  <main class="main hidden" id="main-content">
+    <div class="welcome">
+      <h1>工作台</h1>
+      <p>AirDream 项目内部工具与服务</p>
+    </div>
+
+    <div class="services">
+      <div class="service-card" id="btn-open-notes" style="cursor:pointer;">
+        <div class="service-icon">📖</div>
+        <div class="service-name">枕书阁</div>
+        <div class="service-desc">读书笔记管理工具，支持自定义模板、多笔记本分类、AI 助手</div>
+        <span class="service-tag public">公开</span>
+      </div>
+
+      <div class="service-card" id="btn-open-group" style="cursor:pointer;">
+        <div class="service-icon">👥</div>
+        <div class="service-name">AirDream 群组</div>
+        <div class="service-desc">直接进入群组共享笔记本</div>
+        <span class="service-tag">群组</span>
+      </div>
+
+      <div class="service-card" style="opacity:0.5; cursor:default;">
+        <div class="service-icon">📊</div>
+        <div class="service-name">任务看板</div>
+        <div class="service-desc">项目进度管理、任务分配、里程碑追踪（开发中）</div>
+        <span class="service-tag">内部</span>
+      </div>
+
+      <div class="service-card" style="opacity:0.5; cursor:default;">
+        <div class="service-icon">🗄️</div>
+        <div class="service-name">资源库</div>
+        <div class="service-desc">素材管理、文件共享、版本控制（开发中）</div>
+        <span class="service-tag">内部</span>
+      </div>
+    </div>
+
+    <!-- 管理员专区 -->
+    <div class="admin-section hidden" id="admin-section">
+      <h2 class="section-title">管理员专区</h2>
+      <div class="services">
+        <div class="service-card" id="btn-admin-users" style="cursor:pointer;">
+          <div class="service-icon">👥</div>
+          <div class="service-name">用户管理</div>
+          <div class="service-desc">查看所有注册用户，管理用户角色</div>
+          <span class="service-tag">管理员</span>
+        </div>
+
+        <div class="service-card" id="btn-admin-system" style="cursor:pointer;">
+          <div class="service-icon">⚙️</div>
+          <div class="service-name">系统信息</div>
+          <div class="service-desc">服务器状态、磁盘空间、运行时间</div>
+          <span class="service-tag">管理员</span>
+        </div>
+
+        <div class="service-card" id="btn-admin-services" style="cursor:pointer;">
+          <div class="service-icon">🔄</div>
+          <div class="service-name">服务管理</div>
+          <div class="service-desc">重启枕书阁、Portal 等服务</div>
+          <span class="service-tag">管理员</span>
+        </div>
+
+        <div class="service-card" id="btn-admin-db" style="cursor:pointer;">
+          <div class="service-icon">🗄️</div>
+          <div class="service-name">数据库</div>
+          <div class="service-desc">查看数据库统计信息</div>
+          <span class="service-tag">管理员</span>
+        </div>
+
+        <div class="service-card" id="btn-admin-invite" style="cursor:pointer;">
+          <div class="service-icon">🎟️</div>
+          <div class="service-name">邀请码</div>
+          <div class="service-desc">生成和管理邀请码</div>
+          <span class="service-tag">管理员</span>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- 管理弹窗 -->
+  <div class="modal-overlay hidden" id="admin-modal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 id="admin-modal-title">管理</h3>
+        <button class="btn-icon" id="admin-modal-close" title="关闭">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <div class="modal-body" id="admin-modal-body">
+        <p style="color:var(--color-ink-faint)">加载中...</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- 登录区域（未登录时显示） -->
+  <div class="auth-section" id="auth-section">
+    <div class="auth-card">
+      <h2>AirDream</h2>
+      <div class="auth-tabs">
+        <button class="auth-tab active" data-tab="login">登录</button>
+        <button class="auth-tab" data-tab="register">注册</button>
+      </div>
+
+      <div id="login-form" class="auth-form">
+        <input type="text" class="auth-input" id="login-username" placeholder="用户名" autocomplete="username">
+        <input type="password" class="auth-input" id="login-password" placeholder="密码" autocomplete="current-password">
+        <p class="auth-error" id="login-error"></p>
+        <button class="auth-submit" id="login-confirm">登录</button>
+      </div>
+
+      <div id="register-form" class="auth-form hidden">
+        <input type="text" class="auth-input" id="register-invite-code" placeholder="邀请码" autocomplete="off">
+        <input type="text" class="auth-input" id="register-username" placeholder="用户名（2-20个字符）">
+        <input type="password" class="auth-input" id="register-password" placeholder="密码（至少6位）">
+        <input type="password" class="auth-input" id="register-password-confirm" placeholder="确认密码">
+        <p class="auth-error" id="register-error"></p>
+        <button class="auth-submit" id="register-confirm">注册</button>
+      </div>
+    </div>
+  </div>
+
+  <footer class="footer">
+    AirDream Internal Portal
+  </footer>
+
+  <script>
+    const API_BASE = window.location.origin;
+    let authToken = localStorage.getItem('airdream_auth') || '';
+    let currentUser = null;
+
+    // 主题
+    function loadTheme() {
+      const saved = localStorage.getItem('airdream_theme') || 'auto';
+      if (saved === 'auto') {
+        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        document.documentElement.setAttribute('data-theme', prefersDark ? 'dark' : 'light');
+      } else {
+        document.documentElement.setAttribute('data-theme', saved);
+      }
+    }
+
+    function toggleTheme() {
+      const current = document.documentElement.getAttribute('data-theme');
+      const next = current === 'dark' ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', next);
+      localStorage.setItem('airdream_theme', next);
+    }
+
+    // 认证
+    function setAuth(token) {
+      authToken = token;
+      localStorage.setItem('airdream_auth', token);
+    }
+
+    function clearAuth() {
+      authToken = '';
+      localStorage.removeItem('airdream_auth');
+    }
+
+    function showMain() {
+      const authSection = document.getElementById('auth-section');
+      const reveal = () => {
+        authSection.classList.add('hidden');
+        authSection.classList.remove('hiding');
+        document.getElementById('main-content').classList.remove('hidden');
+        document.getElementById('btn-logout').classList.remove('hidden');
+        if (currentUser && currentUser.role === 'admin') {
+          document.getElementById('admin-section').classList.remove('hidden');
+        }
+      };
+      authSection.classList.add('hiding');
+      // 等动画结束，或兜底 400ms 后强制显示
+      const timer = setTimeout(reveal, 400);
+      authSection.addEventListener('animationend', () => {
+        clearTimeout(timer);
+        reveal();
+      }, { once: true });
+    }
+
+    function showAuth() {
+      document.getElementById('main-content').classList.add('hidden');
+      const authSection = document.getElementById('auth-section');
+      authSection.classList.remove('hidden');
+      authSection.classList.remove('hiding');
+      document.getElementById('btn-logout').classList.add('hidden');
+    }
+
+    async function checkAuth() {
+      if (!authToken) return false;
+      try {
+        const res = await fetch(`${API_BASE}/api/auth/check`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-Auth-Token': authToken }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          currentUser = data;
+          return true;
+        }
+      } catch (e) {}
+      clearAuth();
+      currentUser = null;
+      return false;
+    }
+
+    async function init() {
+      loadTheme();
+      if (await checkAuth()) {
+        showMain();
+      } else {
+        showAuth();
+      }
+    }
+
+    // 事件绑定
+    document.getElementById('btn-theme').addEventListener('click', toggleTheme);
+
+    document.getElementById('btn-logout').addEventListener('click', () => {
+      clearAuth();
+      showAuth();
+    });
+
+    // Tab 切换
+    document.querySelectorAll('.auth-tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        const tabName = tab.dataset.tab;
+        document.getElementById('login-form').classList.toggle('hidden', tabName !== 'login');
+        document.getElementById('register-form').classList.toggle('hidden', tabName !== 'register');
+      });
+    });
+
+    // 登录
+    document.getElementById('login-confirm').addEventListener('click', async () => {
+      const username = document.getElementById('login-username').value.trim();
+      const password = document.getElementById('login-password').value;
+      const errorEl = document.getElementById('login-error');
+
+      if (!username || !password) {
+        errorEl.textContent = '请输入用户名和密码';
+        errorEl.style.display = 'block';
+        return;
+      }
+
+      try {
+        const res = await fetch(`${API_BASE}/api/auth/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, password })
+        });
+        const data = await res.json();
+
+        if (res.ok && data.success) {
+          setAuth(data.token);
+          await checkAuth();
+          showMain();
+        } else {
+          errorEl.textContent = data.error || '登录失败';
+          errorEl.style.display = 'block';
+        }
+      } catch (e) {
+        errorEl.textContent = '连接失败';
+        errorEl.style.display = 'block';
+      }
+    });
+
+    // 注册
+    document.getElementById('register-confirm').addEventListener('click', async () => {
+      const inviteCode = document.getElementById('register-invite-code').value.trim();
+      const username = document.getElementById('register-username').value.trim();
+      const password = document.getElementById('register-password').value;
+      const passwordConfirm = document.getElementById('register-password-confirm').value;
+      const errorEl = document.getElementById('register-error');
+
+      if (!inviteCode) {
+        errorEl.textContent = '请输入邀请码';
+        errorEl.style.display = 'block';
+        return;
+      }
+
+      if (!username || !password) {
+        errorEl.textContent = '请输入用户名和密码';
+        errorEl.style.display = 'block';
+        return;
+      }
+
+      if (password !== passwordConfirm) {
+        errorEl.textContent = '两次输入的密码不一致';
+        errorEl.style.display = 'block';
+        return;
+      }
+
+      try {
+        const res = await fetch(`${API_BASE}/api/auth/register`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, password, inviteCode })
+        });
+        const data = await res.json();
+
+        if (res.ok && data.success) {
+          setAuth(data.token);
+          await checkAuth();
+          showMain();
+        } else {
+          errorEl.textContent = data.error || '注册失败';
+          errorEl.style.display = 'block';
+        }
+      } catch (e) {
+        errorEl.textContent = '连接失败';
+        errorEl.style.display = 'block';
+      }
+    });
+
+    // Enter 键提交
+    ['login-username', 'login-password'].forEach(id => {
+      document.getElementById(id).addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') document.getElementById('login-confirm').click();
+      });
+    });
+    ['register-username', 'register-password', 'register-password-confirm'].forEach(id => {
+      document.getElementById(id).addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') document.getElementById('register-confirm').click();
+      });
+    });
+
+    // 管理员功能
+    const adminModal = document.getElementById('admin-modal');
+    const adminModalTitle = document.getElementById('admin-modal-title');
+    const adminModalBody = document.getElementById('admin-modal-body');
+
+    function openAdminModal(title) {
+      adminModalTitle.textContent = title;
+      adminModalBody.innerHTML = '<p style="color:var(--color-ink-faint)">加载中...</p>';
+      adminModal.classList.remove('hidden');
+      adminModal.classList.remove('hiding');
+    }
+
+    function closeAdminModal() {
+      adminModal.classList.add('hiding');
+      const hide = () => {
+        adminModal.classList.add('hidden');
+        adminModal.classList.remove('hiding');
+      };
+      const timer = setTimeout(hide, 300);
+      adminModal.addEventListener('animationend', () => {
+        clearTimeout(timer);
+        hide();
+      }, { once: true });
+    }
+
+    document.getElementById('admin-modal-close').addEventListener('click', closeAdminModal);
+
+    adminModal.addEventListener('click', (e) => {
+      if (e.target === adminModal) closeAdminModal();
+    });
+
+    // 用户管理
+    document.getElementById('btn-admin-users').addEventListener('click', async () => {
+      openAdminModal('用户管理');
+      await loadUsers();
+    });
+
+    async function loadUsers() {
+      try {
+        const res = await fetch(`${API_BASE}/api/admin/users`, {
+          headers: { 'X-Auth-Token': authToken }
+        });
+        if (!res.ok) { adminModalBody.innerHTML = '<p style="color:#c0392b">加载失败</p>'; return; }
+        const users = await res.json();
+        if (users.length === 0) { adminModalBody.innerHTML = '<p style="color:var(--color-ink-faint)">暂无用户</p>'; return; }
+        adminModalBody.innerHTML = users.map(u => `
+          <div class="user-item">
+            <div class="user-info">
+              <span class="user-name">${escapeHtml(u.username)} <span class="user-source-tag ${u.source === 'portal' ? 'source-portal' : 'source-notes'}">${u.source === 'portal' ? '工作台' : '枕书阁'}</span></span>
+              <span class="user-meta">ID: ${u.id} · 注册: ${u.created_at || '未知'}</span>
+            </div>
+            ${u.username !== currentUser.username 
+              ? `<div class="dropdown-wrap" data-userid="${u.id}" data-source="${u.source}">
+                  <div class="dropdown-trigger">
+                    <span>${u.role === 'admin' ? '管理员' : '用户'}</span>
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+                  </div>
+                  <div class="dropdown-menu">
+                    <div class="dropdown-item ${u.role !== 'admin' ? 'active' : ''}" data-role="user">用户</div>
+                    <div class="dropdown-item ${u.role === 'admin' ? 'active' : ''}" data-role="admin">管理员</div>
+                  </div>
+                </div>`
+              : `<span class="role-badge role-admin">管理员（你）</span>`
+            }
+          </div>
+        `).join('');
+
+        // 下拉框交互
+        adminModalBody.querySelectorAll('.dropdown-wrap').forEach(wrap => {
+          const trigger = wrap.querySelector('.dropdown-trigger');
+          const items = wrap.querySelectorAll('.dropdown-item');
+
+          trigger.addEventListener('click', (e) => {
+            e.stopPropagation();
+            // 关闭其他下拉框
+            adminModalBody.querySelectorAll('.dropdown-wrap.open').forEach(w => {
+              if (w !== wrap) w.classList.remove('open');
+            });
+            wrap.classList.toggle('open');
+          });
+
+          items.forEach(item => {
+            item.addEventListener('click', async (e) => {
+              e.stopPropagation();
+              const userId = wrap.dataset.userid;
+              const source = wrap.dataset.source;
+              const role = item.dataset.role;
+              wrap.classList.remove('open');
+              trigger.querySelector('span').textContent = role === 'admin' ? '管理员' : '用户';
+              items.forEach(i => i.classList.remove('active'));
+              item.classList.add('active');
+
+              try {
+                const res = await fetch(`${API_BASE}/api/admin/set-role`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json', 'X-Auth-Token': authToken },
+                  body: JSON.stringify({ userId, role, source })
+                });
+                if (!res.ok) alert('修改失败');
+              } catch (e) {
+                alert('连接失败');
+              }
+            });
+          });
+        });
+
+        // 点击外部关闭下拉框
+        document.addEventListener('click', () => {
+          adminModalBody.querySelectorAll('.dropdown-wrap.open').forEach(w => w.classList.remove('open'));
+        });
+      } catch (e) {
+        adminModalBody.innerHTML = '<p style="color:#c0392b">连接失败</p>';
+      }
+    }
+
+    // 系统信息
+    document.getElementById('btn-admin-system').addEventListener('click', async () => {
+      openAdminModal('系统信息');
+      try {
+        const res = await fetch(`${API_BASE}/api/admin/system`, {
+          headers: { 'X-Auth-Token': authToken }
+        });
+        if (!res.ok) { adminModalBody.innerHTML = '<p style="color:#c0392b">加载失败</p>'; return; }
+        const sys = await res.json();
+        adminModalBody.innerHTML = `
+          <div class="sys-info">
+            <div class="sys-row"><span>主机名</span><span>${sys.hostname}</span></div>
+            <div class="sys-row"><span>系统</span><span>${sys.platform} ${sys.arch}</span></div>
+            <div class="sys-row"><span>运行时间</span><span>${sys.uptime}</span></div>
+            <div class="sys-row"><span>总内存</span><span>${sys.totalMem}</span></div>
+            <div class="sys-row"><span>可用内存</span><span>${sys.freeMem}</span></div>
+            <div class="sys-row"><span>CPU</span><span>${sys.cpu}</span></div>
+            <div class="sys-row"><span>Node.js</span><span>${sys.nodeVersion}</span></div>
+            <div class="sys-row"><span>磁盘使用</span><span>${sys.disk}</span></div>
+          </div>
+        `;
+      } catch (e) {
+        adminModalBody.innerHTML = '<p style="color:#c0392b">连接失败</p>';
+      }
+    });
+
+    // 服务管理
+    document.getElementById('btn-admin-services').addEventListener('click', async () => {
+      openAdminModal('服务管理');
+      try {
+        const res = await fetch(`${API_BASE}/api/admin/services`, {
+          headers: { 'X-Auth-Token': authToken }
+        });
+        if (!res.ok) { adminModalBody.innerHTML = '<p style="color:#c0392b">加载失败</p>'; return; }
+        const services = await res.json();
+        adminModalBody.innerHTML = services.map(s => `
+          <div class="user-item">
+            <div class="user-info">
+              <span class="user-name">${s.name}</span>
+              <span class="user-meta">PID: ${s.pid} · 内存: ${s.memory} · 运行: ${s.uptime}</span>
+            </div>
+            <button class="btn-restart" data-name="${s.name}">重启</button>
+          </div>
+        `).join('');
+
+        adminModalBody.querySelectorAll('.btn-restart').forEach(btn => {
+          btn.addEventListener('click', async (e) => {
+            const name = e.target.dataset.name;
+            e.target.disabled = true;
+            e.target.textContent = '重启中...';
+            try {
+              const res = await fetch(`${API_BASE}/api/admin/restart`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-Auth-Token': authToken },
+                body: JSON.stringify({ name })
+              });
+              if (res.ok) {
+                setTimeout(() => {
+                  e.target.textContent = '已重启';
+                  setTimeout(() => { e.target.disabled = false; e.target.textContent = '重启'; }, 2000);
+                }, 1000);
+              } else {
+                e.target.textContent = '失败';
+                e.target.disabled = false;
+              }
+            } catch (e) {
+              e.target.textContent = '失败';
+              e.target.disabled = false;
+            }
+          });
+        });
+      } catch (e) {
+        adminModalBody.innerHTML = '<p style="color:#c0392b">连接失败</p>';
+      }
+    });
+
+    // 数据库统计
+    document.getElementById('btn-admin-db').addEventListener('click', async () => {
+      openAdminModal('数据库统计');
+      try {
+        const res = await fetch(`${API_BASE}/api/admin/db-stats`, {
+          headers: { 'X-Auth-Token': authToken }
+        });
+        if (!res.ok) { adminModalBody.innerHTML = '<p style="color:#c0392b">加载失败</p>'; return; }
+        const stats = await res.json();
+        adminModalBody.innerHTML = `
+          <div class="sys-info">
+            <div class="sys-row"><span>用户数</span><span>${stats.users}</span></div>
+            <div class="sys-row"><span>笔记数</span><span>${stats.notes}</span></div>
+            <div class="sys-row"><span>笔记本数</span><span>${stats.notebooks}</span></div>
+            <div class="sys-row"><span>引用关系数</span><span>${stats.refs}</span></div>
+            <div class="sys-row"><span>数据库大小</span><span>${stats.dbSize}</span></div>
+          </div>
+        `;
+      } catch (e) {
+        adminModalBody.innerHTML = '<p style="color:#c0392b">连接失败</p>';
+      }
+    });
+
+    // SSO 打开枕书阁
+    document.getElementById('btn-open-notes').addEventListener('click', async () => {
+      try {
+        const res = await fetch(`${API_BASE}/api/auth/sso-token`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-Auth-Token': authToken }
+        });
+        const data = await res.json();
+        if (data.token) {
+          window.open(`${window.location.origin}/notes/?sso=${data.token}`, '_blank');
+        }
+      } catch (e) {
+        alert('获取 SSO token 失败');
+      }
+    });
+
+    // SSO 打开群组（需要替换为实际群组ID）
+    const GROUP_ID = 'mr5w0xktnltykr';
+    document.getElementById('btn-open-group').addEventListener('click', async () => {
+      try {
+        const res = await fetch(`${API_BASE}/api/auth/sso-token`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-Auth-Token': authToken }
+        });
+        const data = await res.json();
+        if (data.token) {
+          window.open(`${window.location.origin}/notes/?sso=${data.token}&group=${GROUP_ID}`, '_blank');
+        }
+      } catch (e) {
+        alert('获取 SSO token 失败');
+      }
+    });
+
+    // 邀请码管理
+    document.getElementById('btn-admin-invite').addEventListener('click', async () => {
+      openAdminModal('邀请码管理');
+      await loadInviteCodes();
+    });
+
+    async function loadInviteCodes() {
+      try {
+        const res = await fetch(`${API_BASE}/api/admin/invite-codes`, {
+          headers: { 'X-Auth-Token': authToken }
+        });
+        if (!res.ok) { adminModalBody.innerHTML = '<p style="color:#c0392b">加载失败</p>'; return; }
+        const codes = await res.json();
+        const unusedCodes = codes.filter(c => !c.used_by);
+        const usedCodes = codes.filter(c => c.used_by);
+
+        adminModalBody.innerHTML = `
+          <div style="margin-bottom:16px">
+            <button class="btn-restart" id="btn-gen-invite">生成邀请码</button>
+          </div>
+          ${unusedCodes.length > 0 ? `
+            <div class="group-section-title">未使用 (${unusedCodes.length})</div>
+            ${unusedCodes.map(c => `
+              <div class="group-member-item">
+                <div>
+                  <span class="invite-code">${c.code}</span>
+                  <span style="font-size:12px;color:var(--color-ink-faint);margin-left:8px">创建于 ${c.created_at}</span>
+                </div>
+                <button class="btn-copy" data-code="${c.code}">复制</button>
+              </div>
+            `).join('')}
+          ` : '<p style="color:var(--color-ink-faint)">暂无可用邀请码</p>'}
+          ${usedCodes.length > 0 ? `
+            <div class="group-section-title" style="margin-top:16px">已使用 (${usedCodes.length})</div>
+            ${usedCodes.map(c => `
+              <div class="group-member-item" style="opacity:0.6">
+                <div>
+                  <span class="invite-code">${c.code}</span>
+                  <span style="font-size:12px;color:var(--color-ink-faint);margin-left:8px">使用者: ${c.used_by}</span>
+                </div>
+              </div>
+            `).join('')}
+          ` : ''}
+        `;
+
+        document.getElementById('btn-gen-invite').addEventListener('click', async () => {
+          const res = await fetch(`${API_BASE}/api/admin/invite-codes`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-Auth-Token': authToken }
+          });
+          if (res.ok) await loadInviteCodes();
+        });
+
+        adminModalBody.querySelectorAll('.btn-copy').forEach(btn => {
+          btn.addEventListener('click', () => {
+            navigator.clipboard.writeText(btn.dataset.code).then(() => {
+              btn.textContent = '已复制';
+              setTimeout(() => btn.textContent = '复制', 1500);
+            });
+          });
+        });
+      } catch (e) {
+        adminModalBody.innerHTML = '<p style="color:#c0392b">连接失败</p>';
+      }
+    }
+
+    function escapeHtml(str) {
+      const div = document.createElement('div');
+      div.textContent = str;
+      return div.innerHTML;
+    }
+
+    init();
+  </script>
+</body>
+</html>

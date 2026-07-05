@@ -412,6 +412,7 @@ async function init() {
   // 检查 SSO token
   const urlParams = new URLSearchParams(window.location.search);
   const ssoToken = urlParams.get('sso');
+  const groupIdParam = urlParams.get('group');
   if (ssoToken) {
     try {
       const res = await fetch(`${API_BASE}/api/auth/sso-login`, {
@@ -425,6 +426,11 @@ async function init() {
         window.history.replaceState({}, '', window.location.pathname);
         document.body.classList.add('auth-unlocked');
         await loadAppData();
+        // 如果有 group 参数，自动进入群组模式
+        if (groupIdParam) {
+          const group = allNotebooks.find(nb => nb.groupId === groupIdParam);
+          await enterGroup(groupIdParam, group?.groupName || '');
+        }
         return;
       }
     } catch (e) {}
@@ -439,6 +445,11 @@ async function init() {
       if (res.ok) {
         document.body.classList.add('auth-unlocked');
         await loadAppData();
+        // 如果有 group 参数，自动进入群组模式
+        if (groupIdParam) {
+          const group = allNotebooks.find(nb => nb.groupId === groupIdParam);
+          await enterGroup(groupIdParam, group?.groupName || '');
+        }
       } else {
         clearAuth();
         showAuthOverlay();
