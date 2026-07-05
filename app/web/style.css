@@ -2125,6 +2125,101 @@ input[type="checkbox"] {
   background: var(--color-paper-deep);
 }
 
+/* 导出弹窗 */
+.export-body {
+  padding: 16px 24px;
+  flex: 1;
+  overflow-y: auto;
+}
+
+.export-hint {
+  font-size: 14px;
+  color: var(--color-ink-faint);
+  margin-bottom: 12px;
+}
+
+.export-select-all {
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--color-paper-deep);
+  margin-bottom: 8px;
+}
+
+.export-checkbox-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  padding: 6px 0;
+}
+
+.export-checkbox-wrap input[type="checkbox"] {
+  display: none;
+}
+
+.export-checkmark {
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--color-paper-deep);
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+
+.export-checkbox-wrap input:checked + .export-checkmark {
+  background: var(--color-bamboo);
+  border-color: var(--color-bamboo);
+}
+
+.export-checkbox-wrap input:checked + .export-checkmark::after {
+  content: '';
+  width: 5px;
+  height: 9px;
+  border: solid #fff;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+  margin-top: -2px;
+}
+
+.export-notebook-list {
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+.export-notebook-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  font-size: 14px;
+}
+
+.export-notebook-item .export-checkmark {
+  border-color: var(--color-ink-ghost);
+}
+
+.export-notebook-item input:checked + .export-checkmark {
+  background: var(--color-bamboo);
+  border-color: var(--color-bamboo);
+}
+
+.export-notebook-count {
+  color: var(--color-ink-faint);
+  font-size: 12px;
+  margin-left: auto;
+}
+
+.export-actions {
+  display: flex;
+  gap: 10px;
+  padding: 16px 24px;
+  border-top: 1px solid var(--color-paper-deep);
+  justify-content: flex-end;
+}
+
 /* 表格插入弹窗 */
 .modal-table {
   max-width: 520px;

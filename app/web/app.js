@@ -2196,6 +2196,144 @@ async function deleteNotebook(name) {
 }
 
 // ===== 导入导出 =====
+function showExportModal() {
+  const overlay = document.getElementById('export-overlay');
+  const list = document.getElementById('export-notebook-list');
+  const selectAll = document.getElementById('export-select-all');
+
+  // 获取当前可见的笔记本
+  const notebooks = allNotebooks.filter(nb => {
+    if (currentView === 'group') {
+      return nb.source === 'group' && nb.groupId === currentGroupId;
+    }
+    return nb.source !== 'group';
+  });
+
+  list.innerHTML = notebooks.map(nb => `
+    <label class="export-notebook-item">
+      <input type="checkbox" data-name="${escapeHtml(nb.name)}" checked>
+      <span class="export-checkmark"></span>
+      <span>${escapeHtml(nb.name)}</span>
+      <span class="export-notebook-count">${nb.count || 0}条</span>
+    </label>
+  `).join('');
+
+  selectAll.checked = true;
+
+  // 监听单个checkbox变化更新全选状态
+  list.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+    cb.addEventListener('change', () => {
+      const all = list.querySelectorAll('input[type="checkbox"]');
+      const checked = list.querySelectorAll('input[type="checkbox"]:checked');
+      selectAll.checked = all.length === checked.length;
+    });
+  });
+
+  overlay.style.display = 'flex';
+  const modal = overlay.querySelector('.modal');
+  modal.classList.remove('animate-scale-in');
+  void modal.offsetWidth;
+  modal.classList.add('animate-scale-in');
+}
+
+function closeExportModal() {
+  const overlay = document.getElementById('export-overlay');
+  overlay.classList.add('hiding');
+  overlay.addEventListener('animationend', () => {
+    overlay.style.display = 'none';
+    overlay.classList.remove('hiding');
+  }, { once: true });
+}
+
+async function confirmExport() {
+  const checked = document.querySelectorAll('#export-notebook-list input[type="checkbox"]:checked');
+  const selectedNames = Array.from(checked).map(cb => cb.dataset.name);
+
+  if (selectedNames.length === 0) {
+    alert('请至少选择一个笔记本');
+    return;
+  }
+
+  closeExportModal();
+
+  const btn = document.getElementById('btn-export');
+  const origTitle = btn?.title;
+  if (btn) { btn.disabled = true; btn.classList.add('loading'); btn.title = '正在导出...'; }
+
+  try {
+    let allNotes = [];
+    let exportFilename;
+    const groupId = currentView === 'group' ? currentGroupId : null;
+
+    for (const name of selectedNames) {
+      const nbNotes = await storage.getNotes(name, groupId);
+      allNotes.push(...nbNotes);
+    }
+
+    if (currentView === 'group' && currentGroupName) {
+      exportFilename = `${currentGroupName}_备份_${new Date().toISOString().slice(0, 10)}.json`;
+    } else {
+      exportFilename = `枕书阁_备份_${new Date().toISOString().slice(0, 10)}.json`;
+    }
+
+    const allRefs = await storage.getAllRefs();
+    const globalsData = await storage.getGlobals();
+
+    const imageUrls = new Set();
+    for (const note of allNotes) {
+      for (const val of Object.values(note)) {
+        if (typeof val !== 'string') continue;
+        for (const m of val.matchAll(/!\[[^\]]*\]\((\/api\/images\/[^)]+)\)/g)) {
+          imageUrls.add(m[1]);
+        }
+      }
+    }
+
+    const images = [];
+    const urlList = [...imageUrls];
+    for (let i = 0; i < urlList.length; i++) {
+      if (btn) btn.title = `正在导出图片 (${i + 1}/${urlList.length})...`;
+      try {
+        const resp = await fetch(`${API_BASE}${urlList[i]}`);
+        if (!resp.ok) continue;
+        const blob = await resp.blob();
+        const dataUrl = await new Promise(resolve => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result);
+          reader.readAsDataURL(blob);
+        });
+        images.push({ filename: urlList[i].split('/').pop(), data: dataUrl });
+      } catch (e) { /* skip broken image */ }
+    }
+
+    const exportObj = {
+      version: 2,
+      exportedAt: new Date().toISOString(),
+      globals: {
+        notebooks: globalsData.notebooks || [],
+        fieldComponents: globalsData.fieldComponents || [],
+        cardTemplates: globalsData.cardTemplates || [],
+        notebookTemplates: globalsData.notebookTemplates || {}
+      },
+      notes: allNotes,
+      refs: allRefs,
+      images
+    };
+    const json = JSON.stringify(exportObj, null, 2);
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = exportFilename;
+    a.click();
+    URL.revokeObjectURL(url);
+    showToast(`已导出 ${allNotes.length} 条笔记`);
+  } finally {
+    if (btn) { btn.disabled = false; btn.classList.remove('loading'); btn.title = origTitle; }
+  }
+}
+
+// 保留原有 exportData 作为备用
 async function exportData() {
   const btn = document.getElementById('btn-export');
   const origTitle = btn?.title;
@@ -4420,7 +4558,7 @@ function setupEvents() {
     showTableEditor(rows, cols);
   });
 
-  document.getElementById('btn-export').addEventListener('click', exportData);
+  document.getElementById('btn-export').addEventListener('click', showExportModal);
   document.getElementById('btn-import').addEventListener('click', () => {
     document.getElementById('import-file').click();
   });
@@ -4428,6 +4566,20 @@ function setupEvents() {
     if (e.target.files[0]) importData(e.target.files[0]);
     e.target.value = '';
   });
+
+  // 导出弹窗事件
+  const exportOverlay = document.getElementById('export-overlay');
+  document.getElementById('export-close').addEventListener('click', closeExportModal);
+  document.getElementById('export-cancel').addEventListener('click', closeExportModal);
+  exportOverlay.addEventListener('click', (e) => {
+    if (e.target === exportOverlay) closeExportModal();
+  });
+  document.getElementById('export-select-all').addEventListener('change', (e) => {
+    document.querySelectorAll('#export-notebook-list input[type="checkbox"]').forEach(cb => {
+      cb.checked = e.target.checked;
+    });
+  });
+  document.getElementById('export-confirm').addEventListener('click', confirmExport);
 
   // 设置弹窗
   setupSettingsEvents();
