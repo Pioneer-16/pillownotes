@@ -470,17 +470,15 @@ const server = http.createServer(async (req, res) => {
     for (const group of userGroups) {
       const groupNotebooks = groupOps.getNotebooks(group.id);
       for (const nb of groupNotebooks) {
-        if (!result.some(r => r.name === nb)) {
-          const creatorId = group.created_by;
-          result.push({
-            name: nb,
-            count: noteOps.countByNotebook(nb, creatorId),
-            source: 'group',
-            groupName: group.name,
-            groupId: group.id,
-            readonly: group.member_role !== 'admin'
-          });
-        }
+        const creatorId = group.created_by;
+        result.push({
+          name: nb,
+          count: noteOps.countByNotebook(nb, creatorId),
+          source: 'group',
+          groupName: group.name,
+          groupId: group.id,
+          readonly: group.member_role !== 'admin'
+        });
       }
     }
 
