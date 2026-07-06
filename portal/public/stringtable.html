@@ -127,7 +127,7 @@
     .sidebar {
       width: 260px;
       background: var(--color-cloud);
-      border-right: 1px solid var(--color-paper-deep);
+      border-left: 1px solid var(--color-paper-deep);
       display: flex;
       flex-direction: column;
       flex-shrink: 0;
@@ -495,17 +495,6 @@
   </header>
 
   <div class="layout">
-    <!-- 侧边栏 -->
-    <aside class="sidebar">
-      <div class="sidebar-header">
-        <span class="sidebar-title">字符串表</span>
-        <button class="btn-new" id="btn-new" title="新建字符串表">+</button>
-      </div>
-      <div class="file-list" id="file-list">
-        <div style="padding:20px; text-align:center; color:var(--color-ink-faint); font-size:13px;">加载中...</div>
-      </div>
-    </aside>
-
     <!-- 编辑区 -->
     <div class="editor" id="editor">
       <div class="empty-state" id="empty-state">
@@ -522,8 +511,6 @@
             <button class="btn" id="btn-add-row">+ 添加行</button>
             <button class="btn" id="btn-import-csv">导入 CSV</button>
             <button class="btn" id="btn-export-csv">导出 CSV</button>
-            <button class="btn" id="btn-tdoc-push" title="推送到腾讯文档在线编辑">📤 推送到腾讯文档</button>
-            <button class="btn" id="btn-tdoc-pull" title="从腾讯文档拉取最新数据">📥 从腾讯文档同步</button>
             <button class="btn btn-primary" id="btn-save">保存</button>
           </div>
         </div>
@@ -537,6 +524,17 @@
         </div>
       </div>
     </div>
+
+    <!-- 侧边栏（右侧） -->
+    <aside class="sidebar">
+        <div class="sidebar-header">
+          <span class="sidebar-title">字符串表</span>
+          <button class="btn-new" id="btn-new" title="新建字符串表">+</button>
+        </div>
+        <div class="file-list" id="file-list">
+          <div style="padding:20px; text-align:center; color:var(--color-ink-faint); font-size:13px;">加载中...</div>
+        </div>
+      </aside>
   </div>
 
   <!-- 新建弹窗 -->
@@ -910,61 +908,6 @@
     document.getElementById('btn-add-row').addEventListener('click', addRow);
     document.getElementById('btn-export-csv').addEventListener('click', exportCSV);
     document.getElementById('btn-import-csv').addEventListener('click', importCSV);
-
-    // 腾讯文档 - 推送
-    document.getElementById('btn-tdoc-push').addEventListener('click', async () => {
-      if (!currentFile) return;
-      if (isDirty) { showToast('请先保存本地修改', 'error'); return; }
-      const btn = document.getElementById('btn-tdoc-push');
-      btn.disabled = true;
-      btn.textContent = '推送中...';
-      try {
-        const res = await fetch(`${API}/api/tdoc/push/${encodeURIComponent(currentFile)}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'X-Auth-Token': token }
-        });
-        const data = await res.json();
-        if (res.ok && data.success) {
-          showToast('推送成功！', 'success');
-          if (data.url) {
-            window.open(data.url, '_blank');
-          }
-        } else {
-          showToast(data.error || '推送失败', 'error');
-        }
-      } catch (e) {
-        showToast('推送失败: ' + e.message, 'error');
-      }
-      btn.disabled = false;
-      btn.textContent = '📤 推送到腾讯文档';
-    });
-
-    // 腾讯文档 - 拉取
-    document.getElementById('btn-tdoc-pull').addEventListener('click', async () => {
-      if (!currentFile) return;
-      if (!confirm('从腾讯文档拉取将覆盖本地数据，确定继续吗？')) return;
-      const btn = document.getElementById('btn-tdoc-pull');
-      btn.disabled = true;
-      btn.textContent = '同步中...';
-      try {
-        const res = await fetch(`${API}/api/tdoc/pull/${encodeURIComponent(currentFile)}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'X-Auth-Token': token }
-        });
-        const data = await res.json();
-        if (res.ok && data.success) {
-          showToast(`同步成功！${data.rowCount} 行数据已更新`, 'success');
-          isDirty = false;
-          await openFile(currentFile);
-        } else {
-          showToast(data.error || '同步失败', 'error');
-        }
-      } catch (e) {
-        showToast('同步失败: ' + e.message, 'error');
-      }
-      btn.disabled = false;
-      btn.textContent = '📥 从腾讯文档同步';
-    });
 
     function escapeHtml(str) {
       const div = document.createElement('div');
