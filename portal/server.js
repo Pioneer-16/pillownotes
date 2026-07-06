@@ -402,7 +402,9 @@ const server = http.createServer(async (req, res) => {
   }
 
   // ============ 导表管理 API ============
-  const STRING_TABLE_DIR = path.resolve(__dirname, '../data/stringtables');
+  const STRING_TABLE_DIR = process.env.STRING_TABLE_DIR
+    ? path.resolve(process.env.STRING_TABLE_DIR)
+    : path.resolve(__dirname, '../data/stringtables');
 
   // 确保导表目录存在
   if (!fs.existsSync(STRING_TABLE_DIR)) {
@@ -518,8 +520,8 @@ const server = http.createServer(async (req, res) => {
   }
 
   // ============ 腾讯文档 API ============
-  const TDOC_CONFIG_PATH = path.resolve(__dirname, '../data/stringtables/tdoc_config.json');
-  const TDOC_MAP_PATH = path.resolve(__dirname, '../data/stringtables/tdoc_map.json');
+  const TDOC_CONFIG_PATH = path.join(STRING_TABLE_DIR, 'tdoc_config.json');
+  const TDOC_MAP_PATH = path.join(STRING_TABLE_DIR, 'tdoc_map.json');
 
   function loadTDocConfig() {
     try {
