@@ -1141,7 +1141,8 @@
         const stats = await res.json();
         adminModalBody.innerHTML = `
           <div class="sys-info">
-            <div class="sys-row"><span>用户数</span><span>${stats.users}</span></div>
+            <div class="sys-row"><span>工作台用户</span><span>${stats.portalUsers}</span></div>
+            <div class="sys-row"><span>枕书阁用户</span><span>${stats.notesUsers}</span></div>
             <div class="sys-row"><span>笔记数</span><span>${stats.notes}</span></div>
             <div class="sys-row"><span>笔记本数</span><span>${stats.notebooks}</span></div>
             <div class="sys-row"><span>引用关系数</span><span>${stats.refs}</span></div>
