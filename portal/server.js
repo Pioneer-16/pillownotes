@@ -517,6 +517,251 @@ const server = http.createServer(async (req, res) => {
     }
   }
 
+  // ============ 腾讯文档 API ============
+  const TDOC_CONFIG_PATH = path.resolve(__dirname, '../data/stringtables/tdoc_config.json');
+  const TDOC_MAP_PATH = path.resolve(__dirname, '../data/stringtables/tdoc_map.json');
+
+  function loadTDocConfig() {
+    try {
+      if (fs.existsSync(TDOC_CONFIG_PATH)) return JSON.parse(fs.readFileSync(TDOC_CONFIG_PATH, 'utf-8'));
+    } catch (e) {}
+    return {};
+  }
+
+  function saveTDocConfig(config) {
+    fs.writeFileSync(TDOC_CONFIG_PATH, JSON.stringify(config, null, 2), 'utf-8');
+  }
+
+  function loadTDocMap() {
+    try {
+      if (fs.existsSync(TDOC_MAP_PATH)) return JSON.parse(fs.readFileSync(TDOC_MAP_PATH, 'utf-8'));
+    } catch (e) {}
+    return {};
+  }
+
+  function saveTDocMap(map) {
+    fs.writeFileSync(TDOC_MAP_PATH, JSON.stringify(map, null, 2), 'utf-8');
+  }
+
+  async function tdocRequest(method, url, body) {
+    return new Promise((resolve, reject) => {
+      const config = loadTDocConfig();
+      if (!config.access_token) return reject(new Error('未配置腾讯文档凭证'));
+
+      const https = require('https');
+      const parsed = new URL(url);
+      const options = {
+        hostname: parsed.hostname,
+        path: parsed.pathname + parsed.search,
+        method: method,
+        headers: {
+          'Access-Token': config.access_token,
+          'Client-Id': config.client_id || '',
+          'Open-Id': config.open_id || '',
+          'Content-Type': 'application/json'
+        }
+      };
+
+      const req = https.request(options, (res) => {
+        const chunks = [];
+        res.on('data', c => chunks.push(c));
+        res.on('end', () => {
+          const data = Buffer.concat(chunks).toString('utf-8');
+          try { resolve({ status: res.statusCode, data: JSON.parse(data) }); }
+          catch (e) { resolve({ status: res.statusCode, data: data }); }
+        });
+      });
+      req.on('error', reject);
+      if (body) req.write(JSON.stringify(body));
+      req.end();
+    });
+  }
+
+  // GET /api/tdoc/config — 获取腾讯文档配置状态
+  if (pathname === '/api/tdoc/config' && req.method === 'GET') {
+    if (!checkAuth(req)) return sendError(req, res, '需要登录', 401);
+    const config = loadTDocConfig();
+    return sendJSON(req, res, {
+      configured: !!config.access_token,
+      client_id: config.client_id || '',
+      open_id: config.open_id || ''
+    });
+  }
+
+  // POST /api/tdoc/config — 保存腾讯文档凭证
+  if (pathname === '/api/tdoc/config' && req.method === 'POST') {
+    if (!checkAuth(req)) return sendError(req, res, '需要登录', 401);
+    try {
+      const { access_token, client_id, open_id } = await parseBody(req);
+      if (!access_token || !open_id) return sendError(req, res, '缺少 access_token 或 open_id');
+      saveTDocConfig({ access_token, client_id: client_id || '', open_id });
+      return sendJSON(req, res, { success: true });
+    } catch (e) {
+      return sendError(req, res, '保存失败', 500);
+    }
+  }
+
+  // POST /api/tdoc/push/:name — 推送 CSV 到腾讯文档（创建或更新在线表格）
+  const tdocPushMatch = pathname.match(/^\/api\/tdoc\/push\/([^/]+)$/);
+  if (tdocPushMatch && req.method === 'POST') {
+    if (!checkAuth(req)) return sendError(req, res, '需要登录', 401);
+    const name = decodeURIComponent(tdocPushMatch[1]);
+    const csvPath = path.join(STRING_TABLE_DIR, name.endsWith('.csv') ? name : name + '.csv');
+    if (!fs.existsSync(csvPath)) return sendError(req, res, '文件不存在', 404);
+
+    try {
+      // 读取 CSV 内容
+      const csvText = fs.readFileSync(csvPath, 'utf-8').replace(/^\uFEFF/, '');
+      const lines = csvText.split(/\r?\n/).filter(l => l.trim());
+      const headers = parseCSVLine(lines[0]);
+      const rows = [];
+      for (let i = 1; i < lines.length; i++) {
+        rows.push(parseCSVLine(lines[i]));
+      }
+
+      const map = loadTDocMap();
+      const displayName = name.replace(/\.csv$/, '');
+      let bookId = map[name]?.bookId;
+      let sheetId = map[name]?.sheetId;
+
+      if (!bookId) {
+        // 创建新的在线表格
+        const createRes = await tdocRequest('POST', 'https://docs.qq.com/openapi/drive/v2/files', {
+          title: `[AirDream] ${displayName}`,
+          type: 'sheet'
+        });
+
+        if (createRes.status !== 200 || createRes.data.ret !== 0) {
+          return sendError(req, res, '创建腾讯文档失败: ' + (createRes.data.msg || JSON.stringify(createRes.data)), 500);
+        }
+
+        bookId = createRes.data.data.ID;
+        const docUrl = createRes.data.data.url;
+
+        // 获取子表信息
+        const sheetsRes = await tdocRequest('GET', `https://docs.qq.com/openapi/spreadsheet/v2/${bookId}/sheets-info`);
+        if (sheetsRes.status === 200 && sheetsRes.data.data?.sheets?.length > 0) {
+          sheetId = sheetsRes.data.data.sheets[0].sheetId;
+        }
+
+        map[name] = { bookId, sheetId, url: docUrl, lastPush: new Date().toISOString() };
+        saveTDocMap(map);
+      }
+
+      // 清空现有内容
+      const allRange = `${sheetId}!A1:Z1000`;
+      await tdocRequest('POST', `https://docs.qq.com/openapi/spreadsheet/v2/${bookId}/values/${allRange}:clear`);
+
+      // 写入表头 + 数据
+      const values = [headers, ...rows];
+      const writeRange = `${sheetId}!A1`;
+      const writeRes = await tdocRequest('PUT', `https://docs.qq.com/openapi/spreadsheet/v2/${bookId}/values/${writeRange}`, {
+        values: values
+      });
+
+      if (writeRes.status !== 200 || writeRes.data.ret !== 0) {
+        return sendError(req, res, '写入腾讯文档失败: ' + (writeRes.data.msg || JSON.stringify(writeRes.data)), 500);
+      }
+
+      map[name].lastPush = new Date().toISOString();
+      saveTDocMap(map);
+
+      return sendJSON(req, res, {
+        success: true,
+        url: map[name].url,
+        bookId,
+        sheetId,
+        rowCount: rows.length
+      });
+    } catch (e) {
+      return sendError(req, res, '推送失败: ' + e.message, 500);
+    }
+  }
+
+  // POST /api/tdoc/pull/:name — 从腾讯文档拉取数据到 CSV
+  const tdocPullMatch = pathname.match(/^\/api\/tdoc\/pull\/([^/]+)$/);
+  if (tdocPullMatch && req.method === 'POST') {
+    if (!checkAuth(req)) return sendError(req, res, '需要登录', 401);
+    const name = decodeURIComponent(tdocPullMatch[1]);
+    const map = loadTDocMap();
+
+    if (!map[name]?.bookId) {
+      return sendError(req, res, '该文件尚未推送到腾讯文档，请先推送', 400);
+    }
+
+    try {
+      const { bookId, sheetId } = map[name];
+
+      // 获取子表信息（确认 sheetId）
+      let actualSheetId = sheetId;
+      if (!actualSheetId) {
+        const sheetsRes = await tdocRequest('GET', `https://docs.qq.com/openapi/spreadsheet/v2/${bookId}/sheets-info`);
+        if (sheetsRes.status === 200 && sheetsRes.data.data?.sheets?.length > 0) {
+          actualSheetId = sheetsRes.data.data.sheets[0].sheetId;
+          map[name].sheetId = actualSheetId;
+          saveTDocMap(map);
+        } else {
+          return sendError(req, res, '获取子表信息失败', 500);
+        }
+      }
+
+      // 读取表格数据（先读取大范围，获取实际行数）
+      const readRange = `${actualSheetId}!A1:Z1000`;
+      const readRes = await tdocRequest('GET', `https://docs.qq.com/openapi/spreadsheet/v3/files/${bookId}/${actualSheetId}/A1:Z1000`);
+
+      if (readRes.status !== 200 || readRes.data.ret !== 0) {
+        return sendError(req, res, '读取腾讯文档失败: ' + (readRes.data.msg || JSON.stringify(readRes.data)), 500);
+      }
+
+      const gridData = readRes.data.data?.gridData;
+      if (!gridData?.rows) {
+        return sendError(req, res, '表格数据为空', 400);
+      }
+
+      // 提取数据
+      const csvLines = [];
+      for (const row of gridData.rows) {
+        const cells = (row.values || []).map(cell => {
+          const val = cell?.cellValue?.text || '';
+          if (val.includes(',') || val.includes('"') || val.includes('\n')) {
+            return '"' + val.replace(/"/g, '""') + '"';
+          }
+          return val;
+        });
+        csvLines.push(cells.join(','));
+      }
+
+      // 过滤空行
+      const filteredLines = csvLines.filter(line => line.replace(/,/g, '').trim() !== '');
+      if (filteredLines.length === 0) {
+        return sendError(req, res, '表格数据为空', 400);
+      }
+
+      // 写入 CSV 文件
+      const csvPath = path.join(STRING_TABLE_DIR, name.endsWith('.csv') ? name : name + '.csv');
+      const csvContent = '\uFEFF' + filteredLines.join('\n');
+      fs.writeFileSync(csvPath, csvContent, 'utf-8');
+
+      map[name].lastPull = new Date().toISOString();
+      saveTDocMap(map);
+
+      return sendJSON(req, res, {
+        success: true,
+        rowCount: filteredLines.length - 1,
+        headers: parseCSVLine(filteredLines[0])
+      });
+    } catch (e) {
+      return sendError(req, res, '拉取失败: ' + e.message, 500);
+    }
+  }
+
+  // GET /api/tdoc/map — 获取所有文件的腾讯文档映射
+  if (pathname === '/api/tdoc/map' && req.method === 'GET') {
+    if (!checkAuth(req)) return sendError(req, res, '需要登录', 401);
+    const map = loadTDocMap();
+    return sendJSON(req, res, map);
+  }
+
   // 静态文件
   let filePath = pathname === '/' ? '/index.html' : pathname;
   filePath = path.join(PUBLIC_DIR, filePath);
