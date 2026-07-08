@@ -1,5 +1,8 @@
 /* ===== 枕书阁 · 移动端样式 ===== */
 
+/* 确保 hidden 属性生效 */
+[hidden] { display: none !important; }
+
 /* --- 主题变量（复用桌面色板） --- */
 :root {
   --color-paper: #f6f3ec;
@@ -765,4 +768,91 @@ button { border: none; background: none; cursor: pointer; }
 }
 .m-dropdown-wrap .m-input {
   width: 100%;
+}
+
+/* --- 筛选功能 --- */
+.m-list-heading-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+.m-list-heading {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--color-ink);
+}
+.m-filter-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.m-filter-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  background: var(--color-bamboo-mist);
+  color: var(--color-bamboo);
+  border-radius: 999px;
+  font-size: 12px;
+}
+.m-filter-tag-x {
+  cursor: pointer;
+  margin-left: 2px;
+}
+.m-filter-section {
+  margin-bottom: 16px;
+}
+.m-filter-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-ink);
+  margin-bottom: 8px;
+}
+.m-filter-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.m-filter-opt {
+  padding: 6px 12px;
+  background: var(--color-paper-warm);
+  border-radius: 999px;
+  font-size: 13px;
+  color: var(--color-ink-soft);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.m-filter-opt.active {
+  background: var(--color-bamboo);
+  color: white;
+}
+.m-filter-input {
+  width: 100%;
+}
+
+/* --- 编辑器工具栏 --- */
+.m-editor-toolbar {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 4px;
+}
+.m-toolbar-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--color-paper-deep);
+  border-radius: var(--radius);
+  background: var(--color-paper-warm);
+  color: var(--color-ink-soft);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.m-toolbar-btn:hover {
+  background: var(--color-bamboo-mist);
+  color: var(--color-bamboo);
 }

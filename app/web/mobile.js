@@ -339,22 +339,38 @@ views.notebookList = {
 };
 
 // 视图：笔记本详情（笔记列表）
+// 筛选状态
+const filterState = {
+  activeFilters: {},
+  originalNotes: null,
+};
+
 views.notebookDetail = {
   title: (p) => p.notebook || '笔记',
   async render(container, params) {
     const { notebook } = params;
+    filterState.activeFilters = {};
+    filterState.originalNotes = null;
+    
     container.innerHTML = `<div class="m-view-inner">
-      <div class="m-list-heading">${escapeHtml(notebook)}</div>
+      <div class="m-list-heading-row">
+        <span class="m-list-heading">${escapeHtml(notebook)}</span>
+        <button class="m-icon-btn" id="m-filter-btn" aria-label="筛选">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+        </button>
+      </div>
+      <div id="m-filter-tags" class="m-filter-tags" hidden></div>
       <div id="m-notes-list"><div class="m-loading">加载中…</div></div>
     </div>`;
+    
     setFab({
       label: '新建笔记',
       onClick: () => push('noteEdit', { notebook, note: null }, 'right'),
     });
+    
     let notes = [];
     try {
       notes = await storage.getNotes(notebook, M.currentGroupId);
-      // 按创建时间排序（最新的在前）
       notes.sort((a, b) => {
         const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
         const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
@@ -365,13 +381,175 @@ views.notebookDetail = {
       container.querySelector('#m-notes-list').innerHTML = `<div class="m-empty">加载失败</div>`;
       return;
     }
+    
     const list = container.querySelector('#m-notes-list');
-    if (!notes.length) {
-      list.innerHTML = `<div class="m-empty">笔记本还是空的<br><span style="font-size:12px;color:var(--color-ink-ghost);">点击右下角 + 新增第一条</span></div>`;
-    } else {
-      list.innerHTML = '';
-      notes.forEach(n => list.appendChild(renderNoteCard(n)));
+    const renderList = (filteredNotes) => {
+      if (!filteredNotes.length) {
+        list.innerHTML = `<div class="m-empty">没有匹配的笔记</div>`;
+      } else {
+        list.innerHTML = '';
+        filteredNotes.forEach(n => list.appendChild(renderNoteCard(n)));
+      }
+    };
+    
+    renderList(notes);
+    
+    // 筛选按钮
+    container.querySelector('#m-filter-btn').onclick = () => {
+      push('filterPanel', { notebook, notes, renderList }, 'right');
+    };
+  }
+};
+
+// 视图：筛选面板
+views.filterPanel = {
+  title: () => '筛选',
+  render(container, params) {
+    const { notebook, notes, renderList } = params;
+    const g = M.globals || {};
+    const template = getActiveTemplate(notebook);
+    
+    let sectionsHtml = '';
+    for (const fieldId of template.fieldIds) {
+      const comp = getComponentById(fieldId);
+      if (!comp) continue;
+      
+      if (comp.type === 'dropdown') {
+        const globalOptions = g[`dropdown_${fieldId}`] || [];
+        const noteOptions = notes.map(n => n[fieldId]).filter(Boolean);
+        const options = [...new Set([...globalOptions, ...noteOptions])];
+        if (options.length === 0) continue;
+        
+        const selected = filterState.activeFilters[fieldId] || '';
+        sectionsHtml += `<div class="m-filter-section">
+          <div class="m-filter-label">${escapeHtml(comp.label)}</div>
+          <div class="m-filter-options">
+            ${options.map(opt => `<span class="m-filter-opt ${selected === opt ? 'active' : ''}" data-field="${fieldId}" data-value="${escapeHtml(opt)}">${escapeHtml(opt)}</span>`).join('')}
+          </div>
+        </div>`;
+      } else {
+        const val = filterState.activeFilters[fieldId] || '';
+        sectionsHtml += `<div class="m-filter-section">
+          <div class="m-filter-label">${escapeHtml(comp.label)}</div>
+          <input type="text" class="m-input m-filter-input" data-field="${fieldId}" placeholder="搜索${escapeHtml(comp.label)}…" value="${escapeHtml(val)}">
+        </div>`;
+      }
     }
+    
+    if (!sectionsHtml) {
+      sectionsHtml = '<div class="m-empty">当前模板无可筛选字段</div>';
+    }
+    
+    container.innerHTML = `<div class="m-view-inner">
+      ${sectionsHtml}
+      <div class="m-editor-actions">
+        <button class="m-btn-secondary" id="m-filter-clear">清除筛选</button>
+        <button class="m-btn-primary" id="m-filter-apply">应用</button>
+      </div>
+    </div>`;
+    
+    // 绑定下拉选项点击
+    container.querySelectorAll('.m-filter-opt').forEach(opt => {
+      opt.onclick = () => {
+        const fieldId = opt.dataset.field;
+        const value = opt.dataset.value;
+        if (filterState.activeFilters[fieldId] === value) {
+          delete filterState.activeFilters[fieldId];
+          opt.classList.remove('active');
+        } else {
+          filterState.activeFilters[fieldId] = value;
+          container.querySelectorAll(`.m-filter-opt[data-field="${fieldId}"]`).forEach(o => o.classList.remove('active'));
+          opt.classList.add('active');
+        }
+      };
+    });
+    
+    // 绑定搜索输入
+    let filterTimer = null;
+    container.querySelectorAll('.m-filter-input').forEach(input => {
+      input.addEventListener('input', () => {
+        clearTimeout(filterTimer);
+        filterTimer = setTimeout(() => {
+          const fieldId = input.dataset.field;
+          const value = input.value.trim();
+          if (value) {
+            filterState.activeFilters[fieldId] = value;
+          } else {
+            delete filterState.activeFilters[fieldId];
+          }
+        }, 300);
+      });
+    });
+    
+    // 清除筛选
+    container.querySelector('#m-filter-clear').onclick = () => {
+      filterState.activeFilters = {};
+      pop();
+      renderList(notes);
+    };
+    
+    // 应用筛选
+    container.querySelector('#m-filter-apply').onclick = () => {
+      const filterKeys = Object.keys(filterState.activeFilters);
+      let filtered = notes;
+      
+      if (filterKeys.length > 0) {
+        filtered = notes.filter(note => {
+          return filterKeys.every(fieldId => {
+            const filterVal = filterState.activeFilters[fieldId].toLowerCase();
+            const comp = getComponentById(fieldId);
+            if (!comp) return true;
+            const noteVal = String(note[fieldId] || '').toLowerCase();
+            if (comp.type === 'dropdown') {
+              return noteVal === filterVal;
+            }
+            return noteVal.includes(filterVal);
+          });
+        });
+      }
+      
+      pop();
+      renderList(filtered);
+      
+      // 显示筛选标签
+      const tagsContainer = document.getElementById('m-filter-tags');
+      if (tagsContainer && filterKeys.length > 0) {
+        tagsContainer.hidden = false;
+        tagsContainer.innerHTML = filterKeys.map(fieldId => {
+          const comp = getComponentById(fieldId);
+          const label = comp ? comp.label : fieldId;
+          const value = filterState.activeFilters[fieldId];
+          return `<span class="m-filter-tag">${escapeHtml(label)}: ${escapeHtml(value)} <span class="m-filter-tag-x" data-field="${fieldId}">×</span></span>`;
+        }).join('');
+        
+        tagsContainer.querySelectorAll('.m-filter-tag-x').forEach(x => {
+          x.onclick = () => {
+            delete filterState.activeFilters[x.dataset.field];
+            const remaining = Object.keys(filterState.activeFilters);
+            if (remaining.length === 0) {
+              tagsContainer.hidden = true;
+              renderList(notes);
+            } else {
+              x.parentElement.remove();
+              // 重新筛选
+              const filtered2 = notes.filter(note => {
+                return remaining.every(fieldId => {
+                  const filterVal = filterState.activeFilters[fieldId].toLowerCase();
+                  const comp = getComponentById(fieldId);
+                  if (!comp) return true;
+                  const noteVal = String(note[fieldId] || '').toLowerCase();
+                  if (comp.type === 'dropdown') return noteVal === filterVal;
+                  return noteVal.includes(filterVal);
+                });
+              });
+              renderList(filtered2);
+            }
+          };
+        });
+      } else if (tagsContainer) {
+        tagsContainer.hidden = true;
+      }
+    };
   }
 };
 
@@ -427,9 +605,15 @@ views.noteEdit = {
       const val = note ? (note[fieldId] || '') : '';
       
       if (comp.type === 'textarea') {
+        const hasCode = comp.config?.isCode;
         fieldsHtml += `
           <div class="m-editor-field">
             <label class="m-editor-label">${escapeHtml(comp.label)}</label>
+            ${hasCode ? `<div class="m-editor-toolbar">
+              <button type="button" class="m-toolbar-btn" data-action="insert-code" data-target="${fieldId}" title="插入代码块">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+              </button>
+            </div>` : ''}
             <textarea class="m-editor-textarea" data-field-id="${fieldId}" placeholder="${escapeHtml(comp.placeholder || '')}">${escapeHtml(val)}</textarea>
           </div>`;
       } else if (comp.type === 'dropdown') {
@@ -495,6 +679,31 @@ views.noteEdit = {
         ratingDiv.querySelectorAll('.m-rating-star').forEach(s => {
           s.classList.toggle('active', parseInt(s.dataset.value) <= value);
         });
+      };
+    });
+    
+    // 绑定代码块插入按钮
+    container.querySelectorAll('.m-toolbar-btn').forEach(btn => {
+      btn.onclick = () => {
+        const action = btn.dataset.action;
+        if (action === 'insert-code') {
+          const target = btn.dataset.target;
+          const textarea = container.querySelector(`textarea[data-field-id="${target}"]`);
+          if (!textarea) return;
+          
+          const start = textarea.selectionStart;
+          const end = textarea.selectionEnd;
+          const before = textarea.value.substring(0, start);
+          const after = textarea.value.substring(end);
+          
+          const codeBlock = '```\n\n```';
+          const prefix = (before && !before.endsWith('\n')) ? '\n' : '';
+          textarea.value = before + prefix + codeBlock + after;
+          
+          const cursorPos = (before + prefix).length + 4;
+          textarea.setSelectionRange(cursorPos, cursorPos);
+          textarea.focus();
+        }
       };
     });
     
