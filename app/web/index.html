@@ -2,6 +2,22 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
+  <script>
+    // 设备分流：命中移动则跳 /mobile.html；?force=desktop|mobile 可覆盖
+    (function(){
+      var qs = new URLSearchParams(location.search);
+      var force = qs.get('force');
+      if (force === 'desktop') return;
+      var uaMobile = /Android|iPhone|iPod|IEMobile|BlackBerry|Opera Mini/i.test(navigator.userAgent);
+      var narrow   = window.matchMedia('(max-width: 820px)').matches;
+      var coarse   = window.matchMedia('(pointer: coarse)').matches;
+      var isMobile = force === 'mobile' || (uaMobile && coarse) || (narrow && coarse);
+      if (isMobile) {
+        var qsStr = location.search || '';
+        location.replace('mobile.html' + qsStr);
+      }
+    })();
+  </script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>枕书阁</title>
   <link rel="stylesheet" href="style.css?v=19">
@@ -359,6 +375,7 @@
   <div class="toast-container" id="toast-container"></div>
 
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script src="core.js?v=1"></script>
   <script src="app.js?v=23"></script>
 </body>
 </html>
