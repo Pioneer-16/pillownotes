@@ -114,7 +114,7 @@ async function doLogin(username, password) {
     body: JSON.stringify({ username, password })
   });
   const data = await res.json();
-  if (!res.ok) throw new Error(data.error || '登录失败');
+  if (!res.ok || !data.success) throw new Error(data.error || '登录失败');
   return data;
 }
 
@@ -124,7 +124,7 @@ async function doRegister(username, password) {
     body: JSON.stringify({ username, password })
   });
   const data = await res.json();
-  if (!res.ok) throw new Error(data.error || '注册失败');
+  if (!res.ok || !data.success) throw new Error(data.error || '注册失败');
   return data;
 }
 
