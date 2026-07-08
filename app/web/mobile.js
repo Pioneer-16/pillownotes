@@ -587,6 +587,37 @@ function renderNoteCard(note) {
   return card;
 }
 
+// 图片上传并插入
+async function uploadAndInsertImage(file, textarea) {
+  const reader = new FileReader();
+  reader.onload = async (e) => {
+    const data = e.target.result;
+    try {
+      const res = await fetch(`${API_BASE}/api/images`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ data, name: file.name || 'image.png' })
+      });
+      const result = await res.json();
+      if (result.url) {
+        const md = `![图片](${result.url})`;
+        const start = textarea.selectionStart;
+        const end = textarea.selectionEnd;
+        const before = textarea.value.substring(0, start);
+        const after = textarea.value.substring(end);
+        const prefix = before && !before.endsWith('\n') ? '\n' : '';
+        textarea.value = before + prefix + md + '\n' + after;
+        textarea.selectionStart = textarea.selectionEnd = (before + prefix + md).length;
+        toast('图片已插入');
+      }
+    } catch (err) {
+      console.error('图片上传失败:', err);
+      toast('图片上传失败');
+    }
+  };
+  reader.readAsDataURL(file);
+}
+
 // 视图：笔记编辑
 views.noteEdit = {
   title: (p) => p.note ? '编辑笔记' : '新增笔记',
@@ -606,14 +637,18 @@ views.noteEdit = {
       
       if (comp.type === 'textarea') {
         const hasCode = comp.config?.isCode;
+        const hasImage = comp.config?.hasTable; // 使用 hasTable 配置来表示支持图片
         fieldsHtml += `
           <div class="m-editor-field">
             <label class="m-editor-label">${escapeHtml(comp.label)}</label>
-            ${hasCode ? `<div class="m-editor-toolbar">
-              <button type="button" class="m-toolbar-btn" data-action="insert-code" data-target="${fieldId}" title="插入代码块">
+            <div class="m-editor-toolbar">
+              ${hasCode ? `<button type="button" class="m-toolbar-btn" data-action="insert-code" data-target="${fieldId}" title="插入代码块">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
-              </button>
-            </div>` : ''}
+              </button>` : ''}
+              ${hasImage ? `<button type="button" class="m-toolbar-btn" data-action="insert-image" data-target="${fieldId}" title="插入图片">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+              </button>` : ''}
+            </div>
             <textarea class="m-editor-textarea" data-field-id="${fieldId}" placeholder="${escapeHtml(comp.placeholder || '')}">${escapeHtml(val)}</textarea>
           </div>`;
       } else if (comp.type === 'dropdown') {
@@ -682,15 +717,15 @@ views.noteEdit = {
       };
     });
     
-    // 绑定代码块插入按钮
+    // 绑定工具栏按钮
     container.querySelectorAll('.m-toolbar-btn').forEach(btn => {
       btn.onclick = () => {
         const action = btn.dataset.action;
+        const target = btn.dataset.target;
+        const textarea = container.querySelector(`textarea[data-field-id="${target}"]`);
+        if (!textarea) return;
+        
         if (action === 'insert-code') {
-          const target = btn.dataset.target;
-          const textarea = container.querySelector(`textarea[data-field-id="${target}"]`);
-          if (!textarea) return;
-          
           const start = textarea.selectionStart;
           const end = textarea.selectionEnd;
           const before = textarea.value.substring(0, start);
@@ -703,8 +738,35 @@ views.noteEdit = {
           const cursorPos = (before + prefix).length + 4;
           textarea.setSelectionRange(cursorPos, cursorPos);
           textarea.focus();
+        } else if (action === 'insert-image') {
+          // 创建文件选择器
+          const input = document.createElement('input');
+          input.type = 'file';
+          input.accept = 'image/*';
+          input.onchange = async () => {
+            const file = input.files[0];
+            if (!file) return;
+            await uploadAndInsertImage(file, textarea);
+          };
+          input.click();
         }
       };
+    });
+    
+    // 支持图片粘贴
+    container.querySelectorAll('.m-editor-textarea').forEach(textarea => {
+      textarea.addEventListener('paste', async (e) => {
+        const items = e.clipboardData?.items;
+        if (!items) return;
+        for (const item of items) {
+          if (item.type.startsWith('image/')) {
+            e.preventDefault();
+            const file = item.getAsFile();
+            await uploadAndInsertImage(file, textarea);
+            break;
+          }
+        }
+      });
     });
     
     container.querySelector('#m-ne-cancel').onclick = () => pop();
@@ -855,7 +917,9 @@ views.groupList = {
               const row = document.createElement('div');
               row.className = 'm-group-row';
               row.innerHTML = `<div><div class="m-group-row-name">${escapeHtml(g.name)}</div>
-                <div class="m-group-row-meta">邀请码 ${escapeHtml(g.invite_code || g.inviteCode || '—')}</div></div>`;
+                <div class="m-group-row-meta">邀请码 ${escapeHtml(g.invite_code || g.inviteCode || '—')}</div></div>
+                <div class="m-group-row-arrow">›</div>`;
+              row.onclick = () => push('groupDetail', { group: g }, 'right');
               panel.appendChild(row);
             });
           }
@@ -892,6 +956,152 @@ views.groupList = {
     };
     container.querySelectorAll('.m-group-tab').forEach(b => b.onclick = () => showTab(b.dataset.t));
     showTab('mine');
+  }
+};
+
+// 视图：群组详情
+views.groupDetail = {
+  title: () => '群组详情',
+  async render(container, params) {
+    const { group } = params;
+    const groupId = group.id || group.groupId;
+    container.innerHTML = `<div class="m-view-inner">
+      <div class="m-loading">加载中…</div>
+    </div>`;
+    
+    try {
+      const detail = await storage.getGroupDetail(groupId);
+      const isAdmin = detail.role === 'admin' || detail.isAdmin;
+      
+      container.innerHTML = `<div class="m-view-inner">
+        <!-- 邀请码 -->
+        <div class="m-detail-section">
+          <div class="m-detail-title">邀请码</div>
+          <div class="m-invite-code-row">
+            <span class="m-invite-code">${escapeHtml(detail.invite_code || detail.inviteCode || '')}</span>
+            <button class="m-btn-secondary m-btn-sm" id="m-copy-code">复制</button>
+          </div>
+        </div>
+        
+        <!-- 共享笔记本 -->
+        <div class="m-detail-section">
+          <div class="m-detail-title">共享笔记本</div>
+          <div id="m-group-notebooks">
+            ${(detail.notebooks || []).length > 0 
+              ? (detail.notebooks || []).map(nb => `
+                <div class="m-group-nb-item">
+                  <span>${escapeHtml(nb)}</span>
+                  ${isAdmin ? `<button class="m-btn-danger-text" data-nb="${escapeHtml(nb)}">移除</button>` : ''}
+                </div>
+              `).join('')
+              : '<div class="m-empty">暂无共享笔记本</div>'
+            }
+          </div>
+          ${isAdmin ? `<div class="m-add-nb-row">
+            <input class="m-input" id="m-add-nb-input" placeholder="输入笔记本名称">
+            <button class="m-btn-primary m-btn-sm" id="m-add-nb-btn">添加</button>
+          </div>` : ''}
+        </div>
+        
+        <!-- 成员列表 -->
+        <div class="m-detail-section">
+          <div class="m-detail-title">成员 (${(detail.members || []).length})</div>
+          <div id="m-group-members">
+            ${(detail.members || []).map(m => `
+              <div class="m-member-item">
+                <div class="m-member-avatar">${(m.username || m.name || '?').charAt(0).toUpperCase()}</div>
+                <div class="m-member-info">
+                  <div class="m-member-name">${escapeHtml(m.username || m.name || '')}</div>
+                  <div class="m-member-role">${m.role === 'admin' ? '管理员' : '成员'}</div>
+                </div>
+                ${isAdmin && m.id !== detail.currentUserId ? `<button class="m-btn-danger-text" data-uid="${m.id}">移除</button>` : ''}
+              </div>
+            `).join('')}
+          </div>
+        </div>
+        
+        <!-- 操作按钮 -->
+        <div class="m-group-actions">
+          ${isAdmin 
+            ? `<button class="m-btn-danger" id="m-dissolve-group">解散群组</button>`
+            : `<button class="m-btn-secondary" id="m-leave-group">退出群组</button>`
+          }
+        </div>
+      </div>`;
+      
+      // 复制邀请码
+      container.querySelector('#m-copy-code')?.onclick = () => {
+        const code = detail.invite_code || detail.inviteCode || '';
+        navigator.clipboard.writeText(code).then(() => {
+          toast('已复制');
+        }).catch(() => {
+          toast('复制失败');
+        });
+      };
+      
+      // 添加共享笔记本
+      container.querySelector('#m-add-nb-btn')?.onclick = async () => {
+        const input = container.querySelector('#m-add-nb-input');
+        const name = input.value.trim();
+        if (!name) return;
+        try {
+          const r = await storage.addGroupNotebook(groupId, name);
+          if (r && r.error) { toast(r.error); return; }
+          toast('已添加');
+          // 重新加载详情
+          push('groupDetail', { group }, 'right');
+        } catch (e) { toast('添加失败'); }
+      };
+      
+      // 移除共享笔记本
+      container.querySelectorAll('.m-btn-danger-text[data-nb]').forEach(btn => {
+        btn.onclick = async () => {
+          if (!await confirmModal(`确定移除笔记本"${btn.dataset.nb}"？`)) return;
+          try {
+            await storage.removeGroupNotebook(groupId, btn.dataset.nb);
+            toast('已移除');
+            push('groupDetail', { group }, 'right');
+          } catch (e) { toast('移除失败'); }
+        };
+      });
+      
+      // 移除成员
+      container.querySelectorAll('.m-btn-danger-text[data-uid]').forEach(btn => {
+        btn.onclick = async () => {
+          if (!await confirmModal('确定移除该成员？')) return;
+          try {
+            await storage.removeGroupMember(groupId, btn.dataset.uid);
+            toast('已移除');
+            push('groupDetail', { group }, 'right');
+          } catch (e) { toast('移除失败'); }
+        };
+      });
+      
+      // 解散群组
+      container.querySelector('#m-dissolve-group')?.onclick = async () => {
+        if (!await confirmModal('确定解散此群组？此操作不可撤销！')) return;
+        try {
+          await storage.dissolveGroup(groupId);
+          toast('已解散');
+          pop();
+        } catch (e) { toast('解散失败'); }
+      };
+      
+      // 退出群组
+      container.querySelector('#m-leave-group')?.onclick = async () => {
+        if (!await confirmModal('确定退出此群组？')) return;
+        try {
+          await storage.leaveGroup(groupId);
+          toast('已退出');
+          pop();
+        } catch (e) { toast('退出失败'); }
+      };
+      
+    } catch (e) {
+      container.innerHTML = `<div class="m-view-inner">
+        <div class="m-empty">加载失败</div>
+      </div>`;
+    }
   }
 };
 

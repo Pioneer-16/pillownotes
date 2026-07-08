@@ -856,3 +856,128 @@ button { border: none; background: none; cursor: pointer; }
   background: var(--color-bamboo-mist);
   color: var(--color-bamboo);
 }
+
+/* --- 群组详情 --- */
+.m-group-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--color-paper-deep);
+  cursor: pointer;
+}
+.m-group-row:active {
+  background: var(--color-paper-warm);
+}
+.m-group-row-name {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--color-ink);
+}
+.m-group-row-meta {
+  font-size: 12px;
+  color: var(--color-ink-faint);
+  margin-top: 2px;
+}
+.m-group-row-arrow {
+  color: var(--color-ink-ghost);
+  font-size: 18px;
+}
+.m-detail-section {
+  margin-bottom: 20px;
+}
+.m-detail-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-ink);
+  margin-bottom: 10px;
+}
+.m-invite-code-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.m-invite-code {
+  font-family: var(--font-mono);
+  font-size: 16px;
+  color: var(--color-bamboo);
+  background: var(--color-paper-warm);
+  padding: 6px 12px;
+  border-radius: var(--radius);
+}
+.m-btn-sm {
+  padding: 6px 12px;
+  font-size: 13px;
+}
+.m-group-nb-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--color-paper-deep);
+}
+.m-add-nb-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+.m-add-nb-row .m-input {
+  flex: 1;
+}
+.m-member-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--color-paper-deep);
+}
+.m-member-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--color-bamboo-mist);
+  color: var(--color-bamboo);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 14px;
+}
+.m-member-info {
+  flex: 1;
+}
+.m-member-name {
+  font-size: 14px;
+  color: var(--color-ink);
+}
+.m-member-role {
+  font-size: 12px;
+  color: var(--color-ink-faint);
+}
+.m-group-actions {
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid var(--color-paper-deep);
+}
+.m-btn-danger {
+  width: 100%;
+  padding: 12px;
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
+  border: none;
+  border-radius: var(--radius);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.m-btn-danger:active {
+  opacity: 0.8;
+}
+.m-btn-danger-text {
+  background: none;
+  border: none;
+  color: var(--color-danger);
+  font-size: 13px;
+  cursor: pointer;
+  padding: 4px 8px;
+}
