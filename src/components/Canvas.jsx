@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState, useRef } from 'react';
 import {
   ReactFlow,
   Background,
@@ -6,39 +6,34 @@ import {
   MiniMap,
   ReactFlowProvider,
   Panel,
-  applyNodeChanges,
-  applyEdgeChanges,
+  useReactFlow,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 
-import TimelineLine from './TimelineLine';
 import CardNode from './CardNode';
 import Toolbar from './Toolbar';
 import Sidebar from './Sidebar';
+import TimelineRuler, { RULER_HEIGHT } from './TimelineRuler';
 import { useCanvas } from '../hooks/useCanvas';
 import { useTemplates } from '../hooks/useTemplates';
 import { exportToJSON } from '../utils/storage';
 
-const nodeTypes = { timeline: TimelineLine, card: CardNode };
+const nodeTypes = { card: CardNode };
+const SNAP_THRESHOLD = 120; // 卡片 Y < 此值时吸附到标尺下方
+const SNAP_Y = RULER_HEIGHT + 40; // 吸附后的 Y 坐标
 
 function CanvasInner() {
   const canvas = useCanvas();
   const { templates, getTemplate, getTemplateComponents, error: tplError } = useTemplates();
+  const { getViewport } = useReactFlow();
 
   const [selectedNodeId, setSelectedNodeId] = useState(null);
-  const [selectedTimelineId, setSelectedTimelineId] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [viewport, setViewport] = useState({ x: 0, y: 0, zoom: 1 });
 
-  // 唯一状态源：从 canvas.state 转换为 React Flow 格式
+  // 节点数据（只有卡片，没有时间线节点）
   const nodes = useMemo(() => {
-    const tlNodes = canvas.state.timelines.map(t => ({
-      id: t.id,
-      type: 'timeline',
-      position: { x: t.x, y: 100 },
-      data: { ...t },
-      style: { width: '200px', height: '400px', overflow: 'visible' },
-    }));
-    const cardNodes = canvas.state.nodes.map(n => ({
+    return canvas.state.nodes.map(n => ({
       id: n.id,
       type: 'card',
       position: { x: n.x, y: n.y },
@@ -50,44 +45,43 @@ function CanvasInner() {
         content: n.data,
       },
     }));
-    return [...tlNodes, ...cardNodes];
-  }, [canvas.state.timelines, canvas.state.nodes, getTemplate, getTemplateComponents]);
+  }, [canvas.state.nodes, getTemplate, getTemplateComponents]);
 
+  // 边数据（贝塞尔曲线）
   const edges = useMemo(() => {
     return canvas.state.edges.map(e => ({
       id: e.id,
       source: e.source,
       target: e.target,
       label: e.label,
-      type: 'smoothstep',
+      type: 'default', // 贝塞尔曲线
       animated: true,
       style: { stroke: '#2d5a3d', strokeWidth: 2 },
     }));
   }, [canvas.state.edges]);
 
-  // onNodesChange 直接驱动 useCanvas
+  // 视口变化回调
+  const onMove = useCallback((_, vp) => {
+    setViewport(vp);
+  }, []);
+
+  // onNodesChange — 处理拖拽 + 吸附 + 删除
   const onNodesChange = useCallback((changes) => {
     for (const change of changes) {
       if (change.type === 'position' && change.position) {
-        const isTimeline = canvas.state.timelines.some(t => t.id === change.id);
-        if (isTimeline) {
-          canvas.updateTimeline(change.id, { x: change.position.x });
-        } else {
-          canvas.updateCardNode(change.id, { x: change.position.x, y: change.position.y });
+        let { x, y } = change.position;
+        // 吸附逻辑：卡片靠近标尺时自动吸附
+        if (y < SNAP_THRESHOLD) {
+          y = SNAP_Y;
         }
+        canvas.updateCardNode(change.id, { x, y });
       }
       if (change.type === 'remove') {
-        const isTimeline = canvas.state.timelines.some(t => t.id === change.id);
-        if (isTimeline) {
-          canvas.deleteTimeline(change.id);
-        } else {
-          canvas.deleteCardNode(change.id);
-        }
+        canvas.deleteCardNode(change.id);
       }
     }
   }, [canvas]);
 
-  // onEdgesChange 直接驱动 useCanvas
   const onEdgesChange = useCallback((changes) => {
     for (const change of changes) {
       if (change.type === 'remove') {
@@ -96,47 +90,33 @@ function CanvasInner() {
     }
   }, [canvas]);
 
-  // onConnect 统一写入 useCanvas
   const onConnect = useCallback((params) => {
     canvas.addEdge(params.source, params.target);
   }, [canvas]);
 
-  // 节点点击
   const onNodeClick = useCallback((_, node) => {
-    if (node.type === 'timeline') {
-      setSelectedTimelineId(node.id);
-      setSelectedNodeId(null);
-    } else {
-      setSelectedNodeId(node.id);
-      setSelectedTimelineId(null);
-    }
+    setSelectedNodeId(node.id);
     setSidebarOpen(true);
   }, []);
 
-  // 画布点击取消选中
   const onPaneClick = useCallback(() => {
     setSelectedNodeId(null);
-    setSelectedTimelineId(null);
     setSidebarOpen(false);
   }, []);
 
-  // 获取选中对象
   const selectedNode = selectedNodeId
     ? nodes.find(n => n.id === selectedNodeId) || null
-    : null;
-  const selectedTimeline = selectedTimelineId
-    ? canvas.state.timelines.find(t => t.id === selectedTimelineId) || null
     : null;
 
   // 工具栏操作
   const handleAddTimeline = useCallback(() => {
-    const x = 200 + canvas.state.timelines.length * 250;
+    const x = 300 + canvas.state.timelines.length * 200;
     canvas.addTimeline(x);
   }, [canvas]);
 
   const handleAddCard = useCallback(() => {
-    const x = 300 + Math.random() * 200;
-    const y = 200 + Math.random() * 200;
+    const x = 200 + Math.random() * 400;
+    const y = SNAP_Y + 50 + Math.random() * 200;
     canvas.addCardNode(x, y, 'default');
   }, [canvas]);
 
@@ -152,7 +132,6 @@ function CanvasInner() {
     if (window.confirm('确定要清空画布吗？此操作不可撤销。')) {
       canvas.resetCanvas();
       setSelectedNodeId(null);
-      setSelectedTimelineId(null);
       setSidebarOpen(false);
     }
   }, [canvas]);
@@ -173,13 +152,10 @@ function CanvasInner() {
 
   const handleDeleteTimeline = useCallback((id) => {
     canvas.deleteTimeline(id);
-    setSelectedTimelineId(null);
-    setSidebarOpen(false);
   }, [canvas]);
 
   const handleCloseSidebar = useCallback(() => {
     setSelectedNodeId(null);
-    setSelectedTimelineId(null);
     setSidebarOpen(false);
   }, []);
 
@@ -201,49 +177,62 @@ function CanvasInner() {
       )}
 
       <div className="canvas-main">
-        <ReactFlow
-          nodes={nodes}
-          edges={edges}
-          onNodesChange={onNodesChange}
-          onEdgesChange={onEdgesChange}
-          onConnect={onConnect}
-          onNodeClick={onNodeClick}
-          onPaneClick={onPaneClick}
-          nodeTypes={nodeTypes}
-          fitView
-          snapToGrid
-          snapGrid={[20, 20]}
-          defaultViewport={{ x: 0, y: 0, zoom: 0.8 }}
-          minZoom={0.1}
-          maxZoom={2}
-          deleteKeyCode="Delete"
-          selectionOnDrag
-          panOnScroll
-          zoomOnDoubleClick={false}
-        >
-          <Background
-            variant="lines"
-            gap={20}
-            size={1}
-            color="#c8c4bb"
-            style={{ opacity: 0.5 }}
-          />
-          <Controls />
-          <MiniMap
-            nodeColor={(node) => node.type === 'timeline' ? '#2d5a3d' : '#c9a96e'}
-            maskColor="rgba(0,0,0,0.08)"
-          />
-          <Panel position="bottom-center">
-            <div className="canvas-hint">
-              🎋 添加时间线（竹签） · 📝 添加卡片（肉） · 拖拽连接点连线 · 双击快速编辑 · Delete 删除
-            </div>
-          </Panel>
-        </ReactFlow>
+        {/* 水平标尺栏 */}
+        <TimelineRuler
+          timelines={canvas.state.timelines}
+          onUpdateTimeline={handleUpdateTimeline}
+          onDeleteTimeline={handleDeleteTimeline}
+          viewportX={viewport.x}
+          zoom={viewport.zoom}
+        />
+
+        {/* React Flow 画布 */}
+        <div style={{ flex: 1, position: 'relative' }}>
+          <ReactFlow
+            nodes={nodes}
+            edges={edges}
+            onNodesChange={onNodesChange}
+            onEdgesChange={onEdgesChange}
+            onConnect={onConnect}
+            onNodeClick={onNodeClick}
+            onPaneClick={onPaneClick}
+            onMove={onMove}
+            nodeTypes={nodeTypes}
+            fitView
+            snapToGrid
+            snapGrid={[20, 20]}
+            defaultViewport={{ x: 0, y: -RULER_HEIGHT, zoom: 1 }}
+            minZoom={0.1}
+            maxZoom={3}
+            deleteKeyCode="Delete"
+            selectionOnDrag
+            panOnScroll
+            zoomOnDoubleClick={false}
+          >
+            <Background
+              variant="dots"
+              gap={20}
+              size={1}
+              color="#c8c4bb"
+              style={{ opacity: 0.4 }}
+            />
+            <Controls />
+            <MiniMap
+              nodeColor={() => '#c9a96e'}
+              maskColor="rgba(0,0,0,0.08)"
+            />
+            <Panel position="bottom-center">
+              <div className="canvas-hint">
+                📜 标尺上拖拽时间标记 · 📝 卡片拖到顶部吸附 · 拖拽连接点画贝塞尔连线 · Delete 删除
+              </div>
+            </Panel>
+          </ReactFlow>
+        </div>
 
         {sidebarOpen && (
           <Sidebar
             selectedNode={selectedNode}
-            selectedTimeline={selectedTimeline}
+            selectedTimeline={null}
             templates={templates}
             onUpdateNode={handleUpdateNode}
             onUpdateTimeline={handleUpdateTimeline}

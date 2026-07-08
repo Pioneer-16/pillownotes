@@ -45,7 +45,7 @@ export function useTemplates() {
     async function fetchTemplates() {
       setLoading(true);
       try {
-        const response = await fetch('/api/globals');
+        const response = await fetch('/notes/api/globals');
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const data = await response.json();
         if (cancelled) return;

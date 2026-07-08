@@ -572,3 +572,194 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: var(--color-ink-light);
 }
+
+/* ===== 时间线标尺 ===== */
+.timeline-ruler {
+  position: relative;
+  background: var(--color-cloud);
+  border-bottom: 2px solid var(--color-paper-deep);
+  box-shadow: 0 2px 8px var(--color-shadow);
+  z-index: 50;
+  flex-shrink: 0;
+  overflow: hidden;
+  user-select: none;
+}
+
+.ruler-ticks {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+}
+
+.ruler-tick {
+  position: absolute;
+  top: 0;
+  width: 1px;
+  height: 10px;
+  background: var(--color-paper-deep);
+}
+
+.ruler-tick-major {
+  height: 18px;
+  background: var(--color-ink-light);
+  opacity: 0.4;
+}
+
+.ruler-marker {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 140px;
+  margin-left: -70px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  cursor: grab;
+  z-index: 10;
+  border-left: 2px solid transparent;
+  transition: background 0.15s;
+}
+
+.ruler-marker:hover {
+  background: rgba(45, 90, 61, 0.06);
+}
+
+.ruler-marker-dragging {
+  cursor: grabbing;
+  background: rgba(45, 90, 61, 0.1);
+  z-index: 20;
+}
+
+.ruler-marker-line {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 2px;
+  height: 100%;
+  pointer-events: none;
+}
+
+.ruler-marker-content {
+  position: relative;
+  z-index: 2;
+  margin-top: 4px;
+  padding: 4px 10px;
+  background: var(--color-cloud);
+  border: 1px solid var(--color-paper-deep);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 1px 4px var(--color-shadow);
+  text-align: center;
+  max-width: 130px;
+  pointer-events: none;
+}
+
+.ruler-marker-title {
+  font-family: 'Noto Serif SC', serif;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ruler-marker-time {
+  font-size: 10px;
+  color: var(--color-ink-light);
+  margin-top: 1px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ruler-marker-delete {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 16px;
+  height: 16px;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: rgba(220, 53, 69, 0.1);
+  border: none;
+  border-radius: 50%;
+  color: #dc3545;
+  font-size: 12px;
+  cursor: pointer;
+  z-index: 3;
+  line-height: 1;
+}
+
+.ruler-marker:hover .ruler-marker-delete {
+  display: flex;
+}
+
+.ruler-marker-edit {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 2px;
+  pointer-events: auto;
+}
+
+.ruler-marker-edit input,
+.ruler-marker-edit textarea {
+  width: 100%;
+  padding: 3px 5px;
+  font-size: 11px;
+  border: 1px solid var(--color-paper-deep);
+  border-radius: 3px;
+  outline: none;
+  font-family: inherit;
+  resize: none;
+}
+
+.ruler-marker-edit input:focus,
+.ruler-marker-edit textarea:focus {
+  border-color: var(--color-bamboo);
+}
+
+.ruler-marker-edit-btns {
+  display: flex;
+  gap: 4px;
+}
+
+.ruler-marker-edit-btns button {
+  flex: 1;
+  padding: 2px 4px;
+  font-size: 10px;
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.ruler-marker-edit-btns button:first-child {
+  background: var(--color-bamboo);
+  color: white;
+}
+
+.ruler-marker-edit-btns button:last-child {
+  background: var(--color-paper-deep);
+  color: var(--color-ink-light);
+}
+
+.ruler-empty-hint {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 13px;
+  color: var(--color-ink-light);
+  opacity: 0.6;
+  white-space: nowrap;
+}
+
+/* ===== 吸附动画 ===== */
+.react-flow__node.card {
+  transition: box-shadow 0.2s;
+}
