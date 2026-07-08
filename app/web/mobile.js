@@ -22,6 +22,61 @@ const M = {
   },
 };
 
+// ---------- 模板系统辅助函数 ----------
+function getActiveTemplate(notebook) {
+  const g = M.globals || {};
+  const templateId = g.notebookTemplates?.[notebook] || 'default';
+  return (g.cardTemplates || []).find(t => t.id === templateId) || getDefaultTemplate();
+}
+
+function getDefaultTemplate() {
+  return { id: 'default', name: '古籍笔记', fieldIds: ['content', 'book', 'page', 'dynasty', 'quote'] };
+}
+
+function getComponentById(id) {
+  const g = M.globals || {};
+  return (g.fieldComponents || []).find(c => c.id === id);
+}
+
+function ensureTemplateDefaults() {
+  const g = M.globals || {};
+  const defaultComponents = [
+    { id: 'content', type: 'textarea', label: '正文', placeholder: '笔记正文…', config: { hasTable: true } },
+    { id: 'book', type: 'dropdown', label: '书名', placeholder: '书名', config: { display: 'bookname' } },
+    { id: 'page', type: 'number', label: '页码', placeholder: '页码', config: { format: 'P000' } },
+    { id: 'dynasty', type: 'dropdown', label: '朝代 / 时间', placeholder: '朝代', config: {} },
+    { id: 'quote', type: 'textarea', label: '引用', placeholder: '引用原文…', config: { hasTable: true, isQuote: true } }
+  ];
+  const defaultIds = new Set(defaultComponents.map(c => c.id));
+
+  if (!g.fieldComponents || g.fieldComponents.length === 0) {
+    g.fieldComponents = defaultComponents;
+  } else {
+    const existingIds = new Set(g.fieldComponents.map(c => c.id));
+    const missing = defaultComponents.filter(c => !existingIds.has(c.id));
+    if (missing.length > 0) g.fieldComponents.push(...missing);
+  }
+  if (!g.cardTemplates || g.cardTemplates.length === 0) {
+    g.cardTemplates = [getDefaultTemplate()];
+  }
+  if (!g.notebookTemplates) {
+    g.notebookTemplates = {};
+  }
+  M.globals = g;
+}
+
+function formatFieldValue(value, comp) {
+  if (!value) return '';
+  if (comp.type === 'number' && comp.config?.format === 'P000') {
+    const num = parseInt(value);
+    return isNaN(num) ? value : String(num).padStart(3, '0');
+  }
+  if (comp.type === 'date' && comp.config?.format === 'YYYY-MM-DD') {
+    return value; // 已经是正确的格式
+  }
+  return value;
+}
+
 // ---------- DOM 缓存 ----------
 const el = id => document.getElementById(id);
 const $stack = () => el('m-stack');
@@ -299,6 +354,12 @@ views.notebookDetail = {
     let notes = [];
     try {
       notes = await storage.getNotes(notebook, M.currentGroupId);
+      // 按创建时间排序（最新的在前）
+      notes.sort((a, b) => {
+        const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        return dateB - dateA;
+      });
       M.notesCache[notebook] = notes;
     } catch (e) {
       container.querySelector('#m-notes-list').innerHTML = `<div class="m-empty">加载失败</div>`;
@@ -354,45 +415,114 @@ views.noteEdit = {
   render(container, params) {
     const { notebook, note } = params;
     const isNew = !note;
-    const initial = note || { content: '', book: '', dynasty: '', page: '', quote: '' };
+    const template = getActiveTemplate(notebook);
+    const g = M.globals || {};
+    
+    // 根据模板字段生成编辑表单
+    let fieldsHtml = '';
+    for (const fieldId of template.fieldIds) {
+      const comp = getComponentById(fieldId);
+      if (!comp) continue;
+      
+      const val = note ? (note[fieldId] || '') : '';
+      
+      if (comp.type === 'textarea') {
+        fieldsHtml += `
+          <div class="m-editor-field">
+            <label class="m-editor-label">${escapeHtml(comp.label)}</label>
+            <textarea class="m-editor-textarea" data-field-id="${fieldId}" placeholder="${escapeHtml(comp.placeholder || '')}">${escapeHtml(val)}</textarea>
+          </div>`;
+      } else if (comp.type === 'dropdown') {
+        // 获取下拉选项
+        const allNotes = M.notesCache[notebook] || [];
+        const allNotesForOptions = allNotes.map(n => n[fieldId]).filter(Boolean);
+        const globalKey = `dropdown_${fieldId}`;
+        const globalOptions = g[globalKey] || [];
+        const usedOptions = [...new Set([...globalOptions, ...allNotesForOptions])];
+        
+        fieldsHtml += `
+          <div class="m-editor-field">
+            <label class="m-editor-label">${escapeHtml(comp.label)}</label>
+            <div class="m-dropdown-wrap">
+              <input class="m-input" data-field-id="${fieldId}" value="${escapeHtml(val)}" placeholder="${escapeHtml(comp.placeholder || '')}" list="m-dl-${fieldId}">
+              <datalist id="m-dl-${fieldId}">
+                ${usedOptions.map(o => `<option value="${escapeHtml(o)}">`).join('')}
+              </datalist>
+            </div>
+          </div>`;
+      } else if (comp.type === 'rating') {
+        const rating = parseInt(val) || 0;
+        let starsHtml = '';
+        for (let s = 1; s <= 5; s++) {
+          starsHtml += `<span class="m-rating-star ${s <= rating ? 'active' : ''}" data-value="${s}">★</span>`;
+        }
+        fieldsHtml += `
+          <div class="m-editor-field">
+            <label class="m-editor-label">${escapeHtml(comp.label)}</label>
+            <div class="m-rating-input" data-field-id="${fieldId}">${starsHtml}</div>
+            <input type="hidden" data-field-id="${fieldId}" value="${rating}">
+          </div>`;
+      } else {
+        // input, number, date, url 等
+        const inputType = comp.type === 'date' ? 'date' : comp.type === 'number' ? 'number' : 'text';
+        const inputMode = comp.type === 'number' ? 'inputmode="numeric"' : '';
+        fieldsHtml += `
+          <div class="m-editor-field">
+            <label class="m-editor-label">${escapeHtml(comp.label)}</label>
+            <input class="m-input" type="${inputType}" ${inputMode} data-field-id="${fieldId}" value="${escapeHtml(formatFieldValue(val, comp))}" placeholder="${escapeHtml(comp.placeholder || '')}">
+          </div>`;
+      }
+    }
+    
     container.innerHTML = `<div class="m-view-inner">
       <div class="m-editor">
-        <div class="m-editor-field">
-          <label class="m-editor-label">正文</label>
-          <textarea class="m-editor-textarea" id="m-ne-content" placeholder="笔记正文…">${escapeHtml(initial.content || '')}</textarea>
-        </div>
-        <div class="m-editor-field">
-          <label class="m-editor-label">书名</label>
-          <input class="m-input" id="m-ne-book" value="${escapeHtml(initial.book || '')}" placeholder="书名">
-        </div>
-        <div class="m-editor-field">
-          <label class="m-editor-label">朝代 / 时间</label>
-          <input class="m-input" id="m-ne-dynasty" value="${escapeHtml(initial.dynasty || '')}" placeholder="朝代">
-        </div>
-        <div class="m-editor-field">
-          <label class="m-editor-label">页码</label>
-          <input class="m-input" id="m-ne-page" inputmode="numeric" value="${escapeHtml(initial.page || '')}" placeholder="页码">
-        </div>
-        <div class="m-editor-field">
-          <label class="m-editor-label">引用原文</label>
-          <textarea class="m-editor-textarea" id="m-ne-quote" placeholder="引用原文…">${escapeHtml(initial.quote || '')}</textarea>
-        </div>
+        ${fieldsHtml}
         <div class="m-editor-actions">
           <button class="m-btn-secondary" id="m-ne-cancel">取消</button>
           <button class="m-btn-primary" id="m-ne-save">保存</button>
         </div>
       </div>
     </div>`;
+    
+    // 绑定评分点击事件
+    container.querySelectorAll('.m-rating-input').forEach(ratingDiv => {
+      ratingDiv.onclick = (e) => {
+        const star = e.target.closest('.m-rating-star');
+        if (!star) return;
+        const value = parseInt(star.dataset.value);
+        const hiddenInput = ratingDiv.nextElementSibling;
+        hiddenInput.value = value;
+        ratingDiv.querySelectorAll('.m-rating-star').forEach(s => {
+          s.classList.toggle('active', parseInt(s.dataset.value) <= value);
+        });
+      };
+    });
+    
     container.querySelector('#m-ne-cancel').onclick = () => pop();
     container.querySelector('#m-ne-save').onclick = async () => {
-      const payload = {
-        content:  container.querySelector('#m-ne-content').value.trim(),
-        book:     container.querySelector('#m-ne-book').value.trim(),
-        dynasty:  container.querySelector('#m-ne-dynasty').value.trim(),
-        page:     container.querySelector('#m-ne-page').value.trim(),
-        quote:    container.querySelector('#m-ne-quote').value.trim(),
-      };
+      // 收集所有字段值
+      const payload = {};
+      for (const fieldId of template.fieldIds) {
+        const comp = getComponentById(fieldId);
+        if (!comp) continue;
+        
+        const fieldEl = container.querySelector(`[data-field-id="${fieldId}"]`);
+        if (!fieldEl) continue;
+        
+        let value = fieldEl.value.trim();
+        
+        // 数字字段格式化
+        if (comp.type === 'number' && value && comp.config?.format === 'P000') {
+          const num = parseInt(value);
+          if (!isNaN(num)) value = String(num);
+        }
+        
+        payload[fieldId] = value;
+      }
+      
+      // 验证必填字段（正文为必填）
       if (!payload.content) { toast('请输入正文'); return; }
+      
       try {
         if (isNew) {
           const id = 'n_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
@@ -442,6 +572,51 @@ views.refColumn = {
     });
   }
 };
+
+// 视图：搜索
+views.search = {
+  title: () => '搜索',
+  async render(container) {
+    container.innerHTML = `<div class="m-view-inner">
+      <div class="m-search-bar">
+        <input class="m-input" id="m-search-input" placeholder="搜索笔记…" autofocus>
+      </div>
+      <div id="m-search-results"><div class="m-empty">输入关键词开始搜索</div></div>
+    </div>`;
+    
+    const input = container.querySelector('#m-search-input');
+    const results = container.querySelector('#m-search-results');
+    let searchTimer = null;
+    
+    input.addEventListener('input', () => {
+      clearTimeout(searchTimer);
+      const q = input.value.trim();
+      if (!q) {
+        results.innerHTML = '<div class="m-empty">输入关键词开始搜索</div>';
+        return;
+      }
+      searchTimer = setTimeout(() => doSearch(q, results), 300);
+    });
+  }
+};
+
+async function doSearch(q, container) {
+  container.innerHTML = '<div class="m-loading">搜索中…</div>';
+  try {
+    const found = await storage.searchNotes(q, M.currentGroupId);
+    if (!found || found.length === 0) {
+      container.innerHTML = '<div class="m-empty">未找到相关笔记</div>';
+      return;
+    }
+    container.innerHTML = '';
+    found.forEach(note => {
+      const card = renderNoteCard(note);
+      container.appendChild(card);
+    });
+  } catch (e) {
+    container.innerHTML = '<div class="m-empty">搜索失败</div>';
+  }
+}
 
 // 视图：群组列表
 views.groupList = {
@@ -532,6 +707,16 @@ views.settings = {
         </div>
       </div>
       <div class="m-setting-section">
+        <div class="m-setting-row" data-act="templates">
+          <div class="m-setting-label">模板管理</div>
+          <div class="m-setting-value">›</div>
+        </div>
+        <div class="m-setting-row" data-act="components">
+          <div class="m-setting-label">组件管理</div>
+          <div class="m-setting-value">›</div>
+        </div>
+      </div>
+      <div class="m-setting-section">
         <div class="m-setting-row" data-act="logout">
           <div class="m-setting-label" style="color:var(--color-danger)">退出登录</div>
         </div>
@@ -548,9 +733,227 @@ views.settings = {
         } else if (act === 'ai') {
           openAI();
           el('m-ai-settings').hidden = false;
+        } else if (act === 'templates') {
+          push('templateManager', {}, 'right');
+        } else if (act === 'components') {
+          push('componentManager', {}, 'right');
         }
       };
     });
+  }
+};
+
+// 视图：模板管理
+views.templateManager = {
+  title: () => '模板管理',
+  async render(container) {
+    const g = M.globals || {};
+    const templates = g.cardTemplates || [];
+    const currentTemplateId = g.notebookTemplates?.[M.allNotebooks[0]?.name] || 'default';
+    
+    container.innerHTML = `<div class="m-view-inner">
+      <div class="m-list-heading">卡片模板</div>
+      <div id="m-tpl-list">
+        ${templates.map(t => `
+          <div class="m-nb-row" data-id="${t.id}">
+            <div class="m-nb-name">${escapeHtml(t.name)}</div>
+            <div class="m-nb-meta">${t.fieldIds.length} 个字段</div>
+          </div>
+        `).join('')}
+      </div>
+      <div class="m-fab" id="m-add-tpl" title="新建模板">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      </div>
+    </div>`;
+    
+    // 点击模板进入编辑
+    container.querySelectorAll('.m-nb-row').forEach(row => {
+      row.onclick = () => {
+        const tplId = row.dataset.id;
+        push('templateEdit', { templateId: tplId }, 'right');
+      };
+    });
+    
+    // 新建模板
+    container.querySelector('#m-add-tpl').onclick = async () => {
+      const name = await confirmModal('输入模板名称', { withInput: true, inputPlaceholder: '模板名称' });
+      if (!name) return;
+      
+      const newTpl = {
+        id: 'tpl_' + Date.now().toString(36),
+        name: name,
+        fieldIds: ['content', 'book', 'page', 'dynasty', 'quote']
+      };
+      g.cardTemplates = [...(g.cardTemplates || []), newTpl];
+      await storage.saveGlobals(g);
+      M.globals = g;
+      toast('已创建');
+      render('fade');
+    };
+  }
+};
+
+// 视图：模板编辑
+views.templateEdit = {
+  title: (p) => '编辑模板',
+  async render(container, params) {
+    const { templateId } = params;
+    const g = M.globals || {};
+    const template = (g.cardTemplates || []).find(t => t.id === templateId);
+    if (!template) {
+      container.innerHTML = '<div class="m-view-inner"><div class="m-empty">模板不存在</div></div>';
+      return;
+    }
+    
+    const allComponents = g.fieldComponents || [];
+    
+    container.innerHTML = `<div class="m-view-inner">
+      <div class="m-editor">
+        <div class="m-editor-field">
+          <label class="m-editor-label">模板名称</label>
+          <input class="m-input" id="m-tpl-name" value="${escapeHtml(template.name)}">
+        </div>
+        <div class="m-list-heading">字段列表</div>
+        <div id="m-tpl-fields">
+          ${template.fieldIds.map(fieldId => {
+            const comp = allComponents.find(c => c.id === fieldId);
+            return comp ? `
+              <div class="m-nb-row" data-field-id="${fieldId}">
+                <div class="m-nb-name">${escapeHtml(comp.label)}</div>
+                <div class="m-nb-meta">${comp.type}</div>
+              </div>
+            ` : '';
+          }).join('')}
+        </div>
+        <div class="m-editor-actions">
+          <button class="m-btn-secondary" id="m-tpl-cancel">取消</button>
+          <button class="m-btn-primary" id="m-tpl-save">保存</button>
+        </div>
+      </div>
+    </div>`;
+    
+    container.querySelector('#m-tpl-cancel').onclick = () => pop();
+    container.querySelector('#m-tpl-save').onclick = async () => {
+      const newName = container.querySelector('#m-tpl-name').value.trim();
+      if (!newName) { toast('请输入模板名称'); return; }
+      
+      template.name = newName;
+      await storage.saveGlobals(g);
+      M.globals = g;
+      toast('已保存');
+      pop();
+    };
+  }
+};
+
+// 视图：组件管理
+views.componentManager = {
+  title: () => '组件管理',
+  async render(container) {
+    const g = M.globals || {};
+    const components = g.fieldComponents || [];
+    
+    container.innerHTML = `<div class="m-view-inner">
+      <div class="m-list-heading">字段组件</div>
+      <div id="m-comp-list">
+        ${components.map(comp => `
+          <div class="m-nb-row" data-comp-id="${comp.id}">
+            <div class="m-nb-name">${escapeHtml(comp.label)}</div>
+            <div class="m-nb-meta">${comp.type}</div>
+          </div>
+        `).join('')}
+      </div>
+      <div class="m-fab" id="m-add-comp" title="新建组件">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      </div>
+    </div>`;
+    
+    // 点击组件进入编辑
+    container.querySelectorAll('.m-nb-row').forEach(row => {
+      row.onclick = () => {
+        const compId = row.dataset.compId;
+        push('componentEdit', { componentId: compId }, 'right');
+      };
+    });
+    
+    // 新建组件
+    container.querySelector('#m-add-comp').onclick = async () => {
+      push('componentEdit', { componentId: null }, 'right');
+    };
+  }
+};
+
+// 视图：组件编辑
+views.componentEdit = {
+  title: (p) => p.componentId ? '编辑组件' : '新建组件',
+  async render(container, params) {
+    const { componentId } = params;
+    const g = M.globals || {};
+    const comp = componentId ? (g.fieldComponents || []).find(c => c.id === componentId) : null;
+    
+    const typeOptions = [
+      { value: 'input', label: '单行文本' },
+      { value: 'textarea', label: '多行文本' },
+      { value: 'dropdown', label: '下拉选择' },
+      { value: 'number', label: '数字' },
+      { value: 'date', label: '日期' },
+      { value: 'url', label: '链接' },
+      { value: 'rating', label: '评分' }
+    ];
+    
+    container.innerHTML = `<div class="m-view-inner">
+      <div class="m-editor">
+        <div class="m-editor-field">
+          <label class="m-editor-label">组件名称</label>
+          <input class="m-input" id="m-comp-label" value="${escapeHtml(comp?.label || '')}" placeholder="组件名称">
+        </div>
+        <div class="m-editor-field">
+          <label class="m-editor-label">组件类型</label>
+          <select class="m-input" id="m-comp-type">
+            ${typeOptions.map(o => `<option value="${o.value}" ${comp?.type === o.value ? 'selected' : ''}>${o.label}</option>`).join('')}
+          </select>
+        </div>
+        <div class="m-editor-field">
+          <label class="m-editor-label">占位符</label>
+          <input class="m-input" id="m-comp-placeholder" value="${escapeHtml(comp?.placeholder || '')}" placeholder="占位符文本">
+        </div>
+        <div class="m-editor-actions">
+          <button class="m-btn-secondary" id="m-comp-cancel">取消</button>
+          <button class="m-btn-primary" id="m-comp-save">保存</button>
+        </div>
+      </div>
+    </div>`;
+    
+    container.querySelector('#m-comp-cancel').onclick = () => pop();
+    container.querySelector('#m-comp-save').onclick = async () => {
+      const label = container.querySelector('#m-comp-label').value.trim();
+      const type = container.querySelector('#m-comp-type').value;
+      const placeholder = container.querySelector('#m-comp-placeholder').value.trim();
+      
+      if (!label) { toast('请输入组件名称'); return; }
+      
+      if (comp) {
+        // 更新现有组件
+        comp.label = label;
+        comp.type = type;
+        comp.placeholder = placeholder;
+      } else {
+        // 创建新组件
+        const newComp = {
+          id: 'field_' + Date.now().toString(36),
+          type: type,
+          label: label,
+          placeholder: placeholder,
+          config: {}
+        };
+        g.fieldComponents = [...(g.fieldComponents || []), newComp];
+      }
+      
+      await storage.saveGlobals(g);
+      M.globals = g;
+      toast('已保存');
+      pop();
+    };
   }
 };
 
@@ -728,6 +1131,7 @@ function bindAuthUI() {
 function bindGlobalUI() {
   el('m-back').onclick = () => pop();
   el('m-btn-theme').onclick = toggleTheme;
+  el('m-btn-search').onclick = () => push('search', {}, 'right');
   el('m-btn-ai').onclick = () => openAI();
   el('m-ai-close').onclick = () => closeAI();
   el('m-ai-settings-toggle').onclick = () => {
@@ -767,7 +1171,14 @@ function bindGlobalUI() {
 }
 
 // ---------- 初始化 ----------
-function initApp() {
+async function initApp() {
+  // 加载 globals 数据
+  try {
+    M.globals = await storage.getGlobals();
+  } catch (e) {
+    console.error('Failed to load globals:', e);
+  }
+  ensureTemplateDefaults();
   render('fade');
   // 初始 pushState 占位一次，使浏览器返回不会直接离开
   history.replaceState({ tab: M.activeTab, depth: 1 }, '');

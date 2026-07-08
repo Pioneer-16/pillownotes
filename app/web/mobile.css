@@ -739,3 +739,30 @@ button { border: none; background: none; cursor: pointer; }
   color: var(--color-ink-faint);
   font-size: 13px;
 }
+
+/* --- 评分组件 --- */
+.m-rating-input {
+  display: flex;
+  gap: 4px;
+  padding: 8px 0;
+}
+.m-rating-star {
+  font-size: 24px;
+  color: var(--color-ink-ghost);
+  cursor: pointer;
+  transition: color 0.15s;
+}
+.m-rating-star.active {
+  color: #f59e0b;
+}
+.m-rating-star:hover {
+  color: #fbbf24;
+}
+
+/* --- 下拉框 --- */
+.m-dropdown-wrap {
+  position: relative;
+}
+.m-dropdown-wrap .m-input {
+  width: 100%;
+}
