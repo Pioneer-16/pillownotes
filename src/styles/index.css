@@ -78,10 +78,72 @@ body {
   stroke-width: 3;
 }
 
+/* 让连线渲染在卡片之上（默认 xyflow 是 node 覆盖 edge） */
+.react-flow__edges {
+  z-index: 1000 !important;
+}
+
 /* Handle 仅设置公共属性，尺寸/颜色由组件内联控制 */
 .react-flow__handle {
   border-radius: 50%;
   transition: background 0.15s;
+}
+
+/* ===== UE 蓝图风格 handle：卡片内侧五边形 pin ===== */
+.react-flow__handle.ue-handle {
+  width: 12px;
+  height: 12px;
+  min-width: 0;
+  min-height: 0;
+  background: transparent !important;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.react-flow__handle.ue-handle-target {
+  left: 8px;
+  transform: translate(0, -50%);
+}
+
+.react-flow__handle.ue-handle-source {
+  right: 8px;
+  left: auto;
+  transform: translate(0, -50%);
+}
+
+.ue-pin {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 12px;
+  height: 12px;
+  transform: translate(-50%, -50%);
+  overflow: visible;
+  pointer-events: none;         /* 事件仍由外层 Handle 捕获 */
+}
+
+.ue-pin-shape {
+  fill: transparent;
+  stroke: var(--color-bamboo);
+  stroke-width: 1;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  transition: fill 0.15s, filter 0.15s, stroke 0.15s;
+}
+
+/* 已连接时：实心竹绿填充 */
+.react-flow__handle.ue-handle-connected .ue-pin-shape {
+  fill: var(--color-bamboo);
+}
+
+.react-flow__handle.ue-handle:hover .ue-pin-shape {
+  filter: drop-shadow(0 0 3px var(--color-bamboo-light));
+}
+
+.react-flow__handle.ue-handle.connectingfrom .ue-pin-shape,
+.react-flow__handle.ue-handle.connectingto .ue-pin-shape {
+  filter: drop-shadow(0 0 4px var(--color-bamboo-glow));
 }
 
 /* ===== 花笺风格卡片 ===== */
@@ -101,6 +163,33 @@ body {
 .huajian-card.selected {
   border-color: var(--color-bamboo-glow);
   box-shadow: 0 0 0 2px rgba(45, 90, 61, 0.2);
+}
+
+.huajian-card.bound-to-timeline {
+  box-shadow: 0 2px 8px var(--color-shadow-deep);
+}
+
+/* 卡片绑定时间线的小三角（贴在卡片上下边，尖朝内） */
+.card-bind-tri {
+  position: absolute;
+  left: 50%;
+  width: 0;
+  height: 0;
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  opacity: 0.55;
+  pointer-events: none;
+  transform: translateX(-50%);
+}
+
+.card-bind-tri-top {
+  top: 0;
+  border-top: 5px solid;         /* 宽边朝上贴住卡片顶边，尖朝下 */
+}
+
+.card-bind-tri-bottom {
+  bottom: 0;
+  border-bottom: 5px solid;      /* 宽边朝下贴住卡片底边，尖朝上 */
 }
 
 /* ===== 时间线 ===== */
@@ -163,6 +252,17 @@ body {
 .canvas-main {
   flex: 1;
   display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow: visible;
+  padding-top: 44px;        /* 给旗子留出溢出空间 */
+}
+
+.canvas-body {
+  flex: 1;
+  display: flex;
+  flex-direction: row;
+  min-height: 0;
   position: relative;
   overflow: hidden;
 }
@@ -577,11 +677,10 @@ body {
 .timeline-ruler {
   position: relative;
   background: var(--color-cloud);
-  border-bottom: 2px solid var(--color-paper-deep);
-  box-shadow: 0 2px 8px var(--color-shadow);
+  box-shadow: 0 1px 0 var(--color-paper-deep), 0 2px 8px var(--color-shadow);
   z-index: 50;
   flex-shrink: 0;
-  overflow: hidden;
+  overflow: visible;
   user-select: none;
 }
 
@@ -598,12 +697,12 @@ body {
   position: absolute;
   top: 0;
   width: 1px;
-  height: 10px;
+  height: 6px;
   background: var(--color-paper-deep);
 }
 
 .ruler-tick-major {
-  height: 18px;
+  height: 12px;
   background: var(--color-ink-light);
   opacity: 0.4;
 }
@@ -612,52 +711,79 @@ body {
   position: absolute;
   top: 0;
   bottom: 0;
-  width: 140px;
-  margin-left: -70px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
+  width: 0;
   cursor: grab;
   z-index: 10;
-  border-left: 2px solid transparent;
-  transition: background 0.15s;
+  pointer-events: none;
 }
 
-.ruler-marker:hover {
-  background: rgba(45, 90, 61, 0.06);
+.ruler-marker-stem {
+  pointer-events: auto;
+  position: absolute;
+  top: 0;
+  bottom: -3px;
+  opacity: 0.85;
+  /* width / left 通过内联样式按 zoom 计算 */
+}
+
+.ruler-marker-flag {
+  pointer-events: auto;
+  position: absolute;
+  left: 0;
+  bottom: 100%;                     /* 悬浮到标尺上方 */
+  transform: translateX(-50%);
+  margin-bottom: 4px;
+  min-width: 60px;
+  max-width: 140px;
+  padding: 3px 10px 4px;
+  background: var(--color-cloud);
+  border: 1.5px solid;
+  border-radius: var(--radius-sm);
+  box-shadow: 0 1px 4px var(--color-shadow);
+  text-align: center;
+  transition: box-shadow 0.15s, transform 0.15s;
+  white-space: nowrap;
+}
+
+.ruler-marker-flag::after {
+  /* 旗子底部的小三角，指向下方的时间线 */
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 4px solid transparent;
+  border-top-color: currentColor;
+  color: inherit;
+  filter: drop-shadow(0 1px 1px var(--color-shadow));
+}
+
+.ruler-marker-flag:hover {
+  box-shadow: 0 2px 8px var(--color-shadow-deep);
 }
 
 .ruler-marker-dragging {
   cursor: grabbing;
-  background: rgba(45, 90, 61, 0.1);
   z-index: 20;
 }
 
-.ruler-marker-line {
-  position: absolute;
-  top: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 2px;
-  height: 100%;
-  pointer-events: none;
+.ruler-marker-dragging .ruler-marker-flag {
+  box-shadow: 0 4px 12px var(--color-shadow-deep);
+  transform: translateX(-50%) scale(1.03);
 }
 
-.ruler-marker-content {
-  position: relative;
-  z-index: 2;
-  margin-top: 4px;
-  padding: 4px 10px;
-  background: var(--color-cloud);
-  border: 1px solid var(--color-paper-deep);
-  border-radius: var(--radius-sm);
-  box-shadow: 0 1px 4px var(--color-shadow);
-  text-align: center;
-  max-width: 130px;
-  pointer-events: none;
+.ruler-marker-selected .ruler-marker-flag {
+  box-shadow: 0 0 0 2px rgba(45, 90, 61, 0.25), 0 2px 8px var(--color-shadow-deep);
+}
+
+.ruler-marker-selected .ruler-marker-stem {
+  opacity: 1;
+  /* 选中时更宽一档：内联 width 乘以 1.5 */
+  filter: drop-shadow(0 0 2px currentColor);
 }
 
 .ruler-marker-title {
+  pointer-events: none;
   font-family: 'Noto Serif SC', serif;
   font-size: 12px;
   font-weight: 600;
@@ -668,6 +794,7 @@ body {
 }
 
 .ruler-marker-time {
+  pointer-events: none;
   font-size: 10px;
   color: var(--color-ink-light);
   margin-top: 1px;
@@ -677,22 +804,24 @@ body {
 }
 
 .ruler-marker-delete {
+  pointer-events: auto;
   position: absolute;
-  top: 2px;
-  right: 2px;
+  top: -6px;
+  right: -6px;
   width: 16px;
   height: 16px;
   display: none;
   align-items: center;
   justify-content: center;
-  background: rgba(220, 53, 69, 0.1);
-  border: none;
+  background: #dc3545;
+  border: 1.5px solid var(--color-cloud);
   border-radius: 50%;
-  color: #dc3545;
-  font-size: 12px;
+  color: white;
+  font-size: 11px;
   cursor: pointer;
   z-index: 3;
   line-height: 1;
+  padding: 0;
 }
 
 .ruler-marker:hover .ruler-marker-delete {
@@ -757,6 +886,103 @@ body {
   color: var(--color-ink-light);
   opacity: 0.6;
   white-space: nowrap;
+}
+
+/* ===== UE 蓝图风格连线的删除控制点 ===== */
+.bp-edge-dot {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--color-cloud);
+  border: 2px solid var(--color-bamboo);
+  box-shadow: 0 1px 3px var(--color-shadow-deep);
+  cursor: pointer;
+  outline: none;
+  transition: transform 0.1s;
+}
+
+.bp-edge-dot:hover {
+  transform: translate(-50%, -50%) scale(1.15) !important;
+}
+
+.bp-edge-dot-selected {
+  background: var(--color-bamboo);
+  border-color: var(--color-cloud);
+  box-shadow: 0 0 0 3px rgba(45, 90, 61, 0.35), 0 1px 3px var(--color-shadow-deep);
+}
+
+/* ===== UE 蓝图 reroute 中断点节点 ===== */
+.reroute-node {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--color-bamboo);
+  border: 2px solid var(--color-cloud);
+  box-shadow: 0 1px 3px var(--color-shadow-deep);
+  cursor: grab;
+  transition: transform 0.1s, box-shadow 0.1s;
+}
+
+.reroute-node:hover {
+  transform: scale(1.2);
+}
+
+.reroute-node.selected {
+  box-shadow: 0 0 0 3px rgba(45, 90, 61, 0.45), 0 1px 3px var(--color-shadow-deep);
+}
+
+.reroute-handle {
+  width: 6px !important;
+  height: 6px !important;
+  background: transparent !important;
+  border: none !important;
+  opacity: 0;                 /* 隐藏但保留连接功能 */
+}
+
+/* ===== 时间线贯穿竖线（world 坐标，跟随 pan/zoom） ===== */
+/* 让 viewport-portal 落到节点下方，卡片自然遮挡竖线 */
+.react-flow__viewport .react-flow__viewport-portal {
+  z-index: -1;
+}
+
+/* x=0 原点参考线 */
+.world-origin-line {
+  position: absolute;
+  top: 0;
+  left: -1px;
+  width: 2px;
+  height: 20000px;
+  background-color: #c9a96e;      /* 金色，比时间线弱一档，做参考 */
+  opacity: 0.7;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.timeline-vline {
+  position: absolute;
+  top: 0;
+  left: -1px;                     /* 2px 宽的 border-left，中心对齐 x=0 */
+  width: 0;
+  height: 20000px;
+  border-left-style: dashed;
+  border-left-width: 2px;
+  border-left-color: #2d5a3d;     /* 内联 borderLeftColor 会覆盖 */
+  opacity: 0.55;
+  pointer-events: auto;
+  cursor: pointer;
+  z-index: 0;
+}
+
+.timeline-vline:hover {
+  opacity: 0.85;
+}
+
+.timeline-vline-selected {
+  opacity: 1;
+  left: -1.5px;
+  border-left-style: solid;
+  border-left-width: 3px;
 }
 
 /* ===== 吸附动画 ===== */

@@ -170,21 +170,43 @@ const CardNode = memo(({ data, id, selected }) => {
 
   return (
     <div
-      className={`huajian-card${selected ? ' selected' : ''}`}
-      style={{ width: '220px', minHeight: '80px', padding: '14px 16px', position: 'relative' }}
+      className={`huajian-card${selected ? ' selected' : ''}${data.boundColor ? ' bound-to-timeline' : ''}`}
+      style={{
+        width: '220px',
+        minHeight: '80px',
+        padding: '14px 34px',
+        position: 'relative',
+      }}
       onDoubleClick={handleDoubleClick}
     >
+      {data.boundColor && (
+        <>
+          <span
+            className="card-bind-tri card-bind-tri-top"
+            style={{ borderTopColor: data.boundColor }}
+            aria-hidden="true"
+          />
+          <span
+            className="card-bind-tri card-bind-tri-bottom"
+            style={{ borderBottomColor: data.boundColor }}
+            aria-hidden="true"
+          />
+        </>
+      )}
+
       <Handle
         type="target"
         id="left"
         position={Position.Left}
-        style={{
-          background: '#2d5a3d',
-          width: '10px', height: '10px',
-          border: '2.5px solid white',
-          left: '-5px'
-        }}
-      />
+        className={`ue-handle ue-handle-target${data.hasIncoming ? ' ue-handle-connected' : ''}`}
+      >
+        <svg className="ue-pin" viewBox="0 0 12 12" aria-hidden="true">
+          <path
+            className="ue-pin-shape"
+            d="M 2 1.5 Q 1 1.5 1 2.5 L 1 9.5 Q 1 10.5 2 10.5 L 4.5 10.5 Q 5.1 10.5 5.5 10.1 L 8.9 6.7 Q 9.5 6 8.9 5.3 L 5.5 1.9 Q 5.1 1.5 4.5 1.5 Z"
+          />
+        </svg>
+      </Handle>
 
       <div style={{ position: 'relative', zIndex: 1 }}>
         {isEditing ? (
@@ -222,13 +244,15 @@ const CardNode = memo(({ data, id, selected }) => {
         type="source"
         id="right"
         position={Position.Right}
-        style={{
-          background: '#2d5a3d',
-          width: '10px', height: '10px',
-          border: '2.5px solid white',
-          right: '-5px'
-        }}
-      />
+        className={`ue-handle ue-handle-source${data.hasOutgoing ? ' ue-handle-connected' : ''}`}
+      >
+        <svg className="ue-pin" viewBox="0 0 12 12" aria-hidden="true">
+          <path
+            className="ue-pin-shape"
+            d="M 2 1.5 Q 1 1.5 1 2.5 L 1 9.5 Q 1 10.5 2 10.5 L 4.5 10.5 Q 5.1 10.5 5.5 10.1 L 8.9 6.7 Q 9.5 6 8.9 5.3 L 5.5 1.9 Q 5.1 1.5 4.5 1.5 Z"
+          />
+        </svg>
+      </Handle>
 
       {selected && data.onDelete && (
         <button

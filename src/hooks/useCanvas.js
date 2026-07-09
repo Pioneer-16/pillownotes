@@ -52,6 +52,25 @@ export function useCanvas() {
     }));
   }, []);
 
+  // 拖动时间线：同步平移所有绑在这条线上的卡片
+  const moveTimelineWithBoundCards = useCallback((id, newX) => {
+    setState(prev => {
+      const tl = prev.timelines.find(t => t.id === id);
+      if (!tl) return prev;
+      const dx = newX - tl.x;
+      if (dx === 0) return prev;
+      return {
+        ...prev,
+        timelines: prev.timelines.map(t =>
+          t.id === id ? { ...t, x: newX } : t
+        ),
+        nodes: prev.nodes.map(n =>
+          n.timelineId === id ? { ...n, x: n.x + dx } : n
+        ),
+      };
+    });
+  }, []);
+
   // 删除时间线 + 清理关联节点和边
   const deleteTimeline = useCallback((id) => {
     setState(prev => {
@@ -108,6 +127,49 @@ export function useCanvas() {
     }));
   }, []);
 
+  // 删除 reroute（中断点）节点：若有 1 入 1 出，合并成一条边
+  const deleteRerouteNode = useCallback((id) => {
+    setState(prev => {
+      const incoming = prev.edges.filter(e => e.target === id);
+      const outgoing = prev.edges.filter(e => e.source === id);
+      let newEdges = prev.edges.filter(e => e.source !== id && e.target !== id);
+      if (incoming.length === 1 && outgoing.length === 1) {
+        newEdges = newEdges.concat({
+          id: generateId(),
+          source: incoming[0].source,
+          target: outgoing[0].target,
+          label: ''
+        });
+      }
+      return {
+        ...prev,
+        nodes: prev.nodes.filter(n => n.id !== id),
+        edges: newEdges
+      };
+    });
+  }, []);
+
+  // 双击边中点 → 创建 reroute 节点，把边切成两段
+  const splitEdgeWithReroute = useCallback((edgeId, x, y) => {
+    setState(prev => {
+      const edge = prev.edges.find(e => e.id === edgeId);
+      if (!edge) return prev;
+      const rerouteId = generateId();
+      const rerouteNode = {
+        id: rerouteId,
+        isReroute: true,
+        x, y,
+      };
+      const e1 = { id: generateId(), source: edge.source, target: rerouteId, label: '' };
+      const e2 = { id: generateId(), source: rerouteId, target: edge.target, label: '' };
+      return {
+        ...prev,
+        nodes: prev.nodes.concat(rerouteNode),
+        edges: prev.edges.filter(e => e.id !== edgeId).concat(e1, e2)
+      };
+    });
+  }, []);
+
   // 添加连线
   const addEdge = useCallback((source, target, label = '') => {
     const newEdge = {
@@ -153,10 +215,13 @@ export function useCanvas() {
     state,
     addTimeline,
     updateTimeline,
+    moveTimelineWithBoundCards,
     deleteTimeline,
     addCardNode,
     updateCardNode,
     deleteCardNode,
+    deleteRerouteNode,
+    splitEdgeWithReroute,
     addEdge,
     deleteEdge,
     updateViewport,

@@ -1,38 +1,54 @@
 import React, { memo, useState, useCallback, useRef } from 'react';
+import { useStore } from '@xyflow/react';
 
-const RULER_HEIGHT = 56;
+const RULER_HEIGHT = 32;
 
-const TimelineRuler = memo(({ timelines, onUpdateTimeline, onDeleteTimeline, viewportX = 0, zoom = 1 }) => {
+const transformSelector = (s) => s.transform;
+
+const TimelineRuler = memo(({
+  timelines,
+  onUpdateTimeline,
+  onMoveTimeline,
+  onDeleteTimeline,
+  onSelectTimeline,
+  selectedTimelineId,
+}) => {
+  // 直接订阅 xyflow store 的 transform，任何 pan/zoom 帧都会立刻触发重渲染
+  const [viewportX, viewportY, zoom] = useStore(transformSelector);
+
   const rulerRef = useRef(null);
   const [draggingId, setDraggingId] = useState(null);
-  const [dragStartX, setDragStartX] = useState(0);
-  const [dragStartMarkerX, setDragStartMarkerX] = useState(0);
   const [editingId, setEditingId] = useState(null);
   const [editData, setEditData] = useState({ title: '', time: '', description: '' });
 
-  // 标尺刻度 — 根据缩放级别自适应
-  const getTickInterval = () => {
-    if (zoom >= 2) return 20;
-    if (zoom >= 1) return 40;
-    if (zoom >= 0.5) return 80;
-    return 160;
+  // 与画布网格保持同一跨度：细 20 world / 粗 100 world
+  // 缩得太小时，跳过密到看不清的细刻度
+  const getTickSpacing = () => {
+    if (zoom < 0.15) return { minor: 500, major: 2500 };
+    if (zoom < 0.4) return { minor: 100, major: 500 };
+    return { minor: 20, major: 100 };
   };
 
-  const tickInterval = getTickInterval();
+  const { minor: minorSpacing, major: majorSpacing } = getTickSpacing();
 
-  // 渲染刻度线
+  // 渲染刻度线（世界坐标 → 屏幕：worldX * zoom + viewportX）
   const renderTicks = () => {
     const ticks = [];
     const width = window.innerWidth || 2000;
-    const offsetX = (viewportX * zoom) % tickInterval;
-    for (let i = -1; i < width / tickInterval + 2; i++) {
-      const x = i * tickInterval - offsetX;
-      const isMajor = Math.round((i * tickInterval - (viewportX * zoom % tickInterval)) / tickInterval) % 5 === 0;
+    // 屏幕左边缘对应的世界坐标 x
+    const worldLeft = -viewportX / zoom;
+    const worldRight = worldLeft + width / zoom;
+    const firstIdx = Math.floor(worldLeft / minorSpacing) - 1;
+    const lastIdx = Math.ceil(worldRight / minorSpacing) + 1;
+    for (let idx = firstIdx; idx <= lastIdx; idx++) {
+      const worldX = idx * minorSpacing;
+      const screenX = worldX * zoom + viewportX;
+      const isMajor = worldX % majorSpacing === 0;
       ticks.push(
         <div
-          key={i}
+          key={idx}
           className={`ruler-tick ${isMajor ? 'ruler-tick-major' : ''}`}
-          style={{ left: `${x}px` }}
+          style={{ left: `${screenX - 0.5}px` }}
         />
       );
     }
@@ -43,13 +59,22 @@ const TimelineRuler = memo(({ timelines, onUpdateTimeline, onDeleteTimeline, vie
   const handleMouseDown = useCallback((e, timeline) => {
     e.stopPropagation();
     e.preventDefault();
+    if (onSelectTimeline) onSelectTimeline(timeline.id);
     setDraggingId(timeline.id);
-    setDragStartX(e.clientX);
-    setDragStartMarkerX(timeline.x);
+
+    const startClientX = e.clientX;
+    const startMarkerX = timeline.x;
+    const SNAP = 20;
 
     const handleMouseMove = (moveE) => {
-      const dx = (moveE.clientX - dragStartX) / zoom;
-      onUpdateTimeline(timeline.id, { x: dragStartMarkerX + dx });
+      const dx = (moveE.clientX - startClientX) / zoom;
+      const rawX = startMarkerX + dx;
+      const snapX = Math.round(rawX / SNAP) * SNAP;   // 20px 网格吸附
+      if (onMoveTimeline) {
+        onMoveTimeline(timeline.id, snapX);
+      } else {
+        onUpdateTimeline(timeline.id, { x: snapX });
+      }
     };
 
     const handleMouseUp = () => {
@@ -60,7 +85,7 @@ const TimelineRuler = memo(({ timelines, onUpdateTimeline, onDeleteTimeline, vie
 
     document.addEventListener('mousemove', handleMouseMove);
     document.addEventListener('mouseup', handleMouseUp);
-  }, [zoom, onUpdateTimeline]);
+  }, [zoom, onUpdateTimeline, onMoveTimeline, onSelectTimeline]);
 
   // 双击编辑
   const handleDoubleClick = useCallback((e, timeline) => {
@@ -105,29 +130,34 @@ const TimelineRuler = memo(({ timelines, onUpdateTimeline, onDeleteTimeline, vie
 
       {/* 时间标记 */}
       {timelines.map(tl => {
-        const screenX = (tl.x - viewportX) * zoom;
+        const screenX = tl.x * zoom + viewportX;
         const isEditing = editingId === tl.id;
         const isDragging = draggingId === tl.id;
+        const isSelected = selectedTimelineId === tl.id;
 
         return (
           <div
             key={tl.id}
-            className={`ruler-marker ${isDragging ? 'ruler-marker-dragging' : ''}`}
-            style={{
-              left: `${screenX}px`,
-              borderColor: tl.color || '#2d5a3d'
-            }}
+            className={`ruler-marker${isDragging ? ' ruler-marker-dragging' : ''}${isSelected ? ' ruler-marker-selected' : ''}`}
+            style={{ left: `${screenX}px` }}
             onMouseDown={(e) => handleMouseDown(e, tl)}
             onDoubleClick={(e) => handleDoubleClick(e, tl)}
           >
-            {/* 标记线 */}
+            {/* 标尺内的短竖线段（宽度随 zoom 变化，视觉上和画布贯穿线一致） */}
             <div
-              className="ruler-marker-line"
-              style={{ backgroundColor: tl.color || '#2d5a3d' }}
+              className="ruler-marker-stem"
+              style={{
+                background: tl.color || '#2d5a3d',
+                width: `${2 * zoom}px`,
+                left: `${-zoom}px`,
+              }}
             />
 
-            {/* 标记内容 */}
-            <div className="ruler-marker-content">
+            {/* 小旗子（悬浮在标尺上方，居中对齐时间线） */}
+            <div
+              className="ruler-marker-flag"
+              style={{ borderColor: tl.color || '#2d5a3d' }}
+            >
               {isEditing ? (
                 <div className="ruler-marker-edit" onClick={e => e.stopPropagation()}>
                   <input
@@ -161,25 +191,22 @@ const TimelineRuler = memo(({ timelines, onUpdateTimeline, onDeleteTimeline, vie
                 <>
                   <div className="ruler-marker-title">{tl.title || '未命名'}</div>
                   {tl.time && <div className="ruler-marker-time">{tl.time}</div>}
+                  <button
+                    className="ruler-marker-delete"
+                    onMouseDown={(e) => e.stopPropagation()}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (window.confirm(`删除时间线「${tl.title || '未命名'}」？`)) {
+                        onDeleteTimeline(tl.id);
+                      }
+                    }}
+                    title="删除"
+                  >
+                    ×
+                  </button>
                 </>
               )}
             </div>
-
-            {/* 删除按钮 */}
-            {!isEditing && (
-              <button
-                className="ruler-marker-delete"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (window.confirm(`删除时间线「${tl.title}」？`)) {
-                    onDeleteTimeline(tl.id);
-                  }
-                }}
-                title="删除"
-              >
-                ×
-              </button>
-            )}
           </div>
         );
       })}
